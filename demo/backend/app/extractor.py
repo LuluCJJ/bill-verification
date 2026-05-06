@@ -57,6 +57,8 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
     fields = parsed.get("extracted_fields") or parsed.get("fields") or []
     normalized_fields = []
     for field in fields:
+        if not isinstance(field, dict):
+            continue
         evidence = field.get("evidence") or {}
         if isinstance(evidence, str):
             evidence = {"page": 1, "text": evidence, "region_hint": ""}
@@ -71,7 +73,7 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
                 "normalized_field": field.get("normalized_field") or field.get("field") or "",
                 "raw_label": field.get("raw_label", ""),
                 "raw_value": field.get("raw_value", field.get("value", "")),
-                "confidence": field.get("confidence", 0.0),
+                "confidence": normalize_confidence(field.get("confidence", 0.0)),
                 "evidence": evidence,
                 "mapping_source": field.get("mapping_source", "ai"),
             }
@@ -79,14 +81,18 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
 
     special_risks = []
     for risk in parsed.get("special_risks", []):
+        if isinstance(risk, str):
+            risk = {"type": "special_risk", "text": risk, "confidence": 0.6, "evidence": risk}
+        if not isinstance(risk, dict):
+            continue
         evidence = risk.get("evidence") or {}
         if isinstance(evidence, str):
             evidence = {"page": 1, "text": evidence, "region_hint": ""}
         special_risks.append(
             {
-                "type": risk.get("type", "special_risk"),
+                "type": normalize_special_risk_type(risk.get("type", "special_risk"), risk.get("text", "")),
                 "text": risk.get("text", ""),
-                "confidence": risk.get("confidence", 0.0),
+                "confidence": normalize_confidence(risk.get("confidence", 0.0)),
                 "evidence": evidence,
             }
         )
@@ -98,6 +104,29 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
         "special_risks": special_risks,
         "raw_model_output": raw_payload,
     }
+
+
+def normalize_confidence(value: Any) -> float:
+    if isinstance(value, (int, float)):
+        return max(0.0, min(1.0, float(value)))
+    text = str(value or "").strip().lower()
+    mapping = {"high": 0.9, "medium": 0.6, "low": 0.3, "高": 0.9, "中": 0.6, "低": 0.3}
+    if text in mapping:
+        return mapping[text]
+    try:
+        number = float(text)
+        if number > 1:
+            number = number / 100
+        return max(0.0, min(1.0, number))
+    except ValueError:
+        return 0.0
+
+
+def normalize_special_risk_type(value: Any, text: Any) -> str:
+    raw = f"{value or ''} {text or ''}".lower()
+    if "不可转让" in raw or "not negotiable" in raw or "a/c payee" in raw or "account payee" in raw:
+        return "non_transferable"
+    return str(value or "special_risk")
 
 
 async def extract_with_model(image_base64: str, mime_type: str = "image/png") -> ExtractionResult:

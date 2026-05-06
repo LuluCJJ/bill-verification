@@ -8,7 +8,7 @@ from .schemas import Evidence, ExtractionResult, VerificationItem, VerificationR
 
 CURRENCY_ALIASES = {
     "USD": {"USD", "US DOLLAR", "US DOLLARS", "$"},
-    "CNY": {"CNY", "RMB", "人民币", "￥"},
+    "CNY": {"CNY", "RMB", "人民币", "人民币元", "￥"},
     "EUR": {"EUR", "EURO", "EUROS", "€"},
     "HKD": {"HKD", "HK DOLLAR", "HONG KONG DOLLAR"},
 }

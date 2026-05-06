@@ -5,7 +5,7 @@
     "document_type": "check",
     "country": "CN",
     "template_id": "cn_check_standard",
-    "image_path": "/samples/documents/cn_check_pass.svg",
+    "image_path": "/samples/documents/cn_check_pass.png",
     "payment_instruction_path": "data/payment_instructions/cn_check_pass.json",
     "expected_result_path": "data/expected_results/cn_check_pass.json"
   },
@@ -25,7 +25,7 @@
     "document_type": "telegraphic_transfer",
     "country": "GLOBAL",
     "template_id": "global_tt_standard",
-    "image_path": "/samples/documents/global_tt_account_mismatch.svg",
+    "image_path": "/samples/documents/global_tt_account_mismatch.png",
     "payment_instruction_path": "data/payment_instructions/global_tt_account_mismatch.json",
     "expected_result_path": "data/expected_results/global_tt_account_mismatch.json"
   }

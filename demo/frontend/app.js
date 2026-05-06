@@ -203,6 +203,7 @@ async function testImageModel() {
   qs("modelTestResult").textContent = "图片测试中...";
   await saveModelSettings(false);
   const image = await currentImagePayload();
+  ensureModelImageType(image.mimeType);
   const result = await api("/api/model/test", {
     method: "POST",
     body: JSON.stringify({
@@ -218,6 +219,7 @@ async function extractWithModel() {
   qs("modelTestResult").textContent = "正在调用 AI 提取票面字段...";
   await saveModelSettings(false);
   const image = await currentImagePayload();
+  ensureModelImageType(image.mimeType);
   const result = await api("/api/extract-with-model", {
     method: "POST",
     body: JSON.stringify({
@@ -434,6 +436,12 @@ function mimeFromPath(path) {
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".pdf")) return "application/pdf";
   return "image/png";
+}
+
+function ensureModelImageType(mimeType) {
+  if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(mimeType)) {
+    throw new Error(`当前模型测试仅支持 PNG/JPG/WebP 图片。当前文件类型是 ${mimeType}，请先转换为图片后再测试。`);
+  }
 }
 
 function simplifyModelResult(result) {
