@@ -5,6 +5,8 @@ let mappingRules = {};
 let currentLang = "zh";
 let uploadedDocument = null;
 let lastExtraction = null;
+let lastVerification = null;
+let resultFilter = "risks";
 
 const qs = (id) => document.getElementById(id);
 
@@ -185,20 +187,44 @@ function renderExtraction(extraction, sourceLabel) {
   lastExtraction = extraction;
   qs("customExtraction").value = JSON.stringify(extraction, null, 2);
   const fields = extraction.extracted_fields || [];
-  qs("extractionSummary").innerHTML = `
-    <span class="badge">${sourceLabel}</span>
-    <span class="badge">字段 ${fields.length}</span>
-    ${(extraction.special_risks || []).length ? `<span class="badge warn">特殊提示 ${(extraction.special_risks || []).length}</span>` : ""}
+  const avgConfidence = fields.length ? Math.round((fields.reduce((sum, field) => sum + Number(field.confidence || 0), 0) / fields.length) * 100) : 0;
+  const isLive = sourceLabel.includes("真实模型");
+  qs("extractionStatus").innerHTML = `
+    <div class="status-card ${isLive ? "live" : "sample"}">
+      <span>${isLive ? "真实 AI 识别" : "样例预置结果"}</span>
+      <strong>${fields.length}</strong>
+      <em>提取字段</em>
+    </div>
+    <div class="status-card">
+      <span>平均置信度</span>
+      <strong>${avgConfidence}%</strong>
+      <em>${isLive ? "来自模型输出" : "样例标注"}</em>
+    </div>
+    <div class="status-card ${(extraction.special_risks || []).length ? "warn" : ""}">
+      <span>特殊提示</span>
+      <strong>${(extraction.special_risks || []).length}</strong>
+      <em>票面额外风险</em>
+    </div>
   `;
+  qs("extractionSummary").innerHTML = "";
   fields.forEach((field) => {
     const chip = document.createElement("div");
-    chip.className = "field-chip";
-    chip.innerHTML = `<strong>${fieldLabel(field.normalized_field)}</strong><span>${escapeHtml(field.raw_value)}</span><em>${Math.round((field.confidence || 0) * 100)}%</em>`;
+    chip.className = `field-chip ${confidenceClass(field.confidence)}`;
+    chip.innerHTML = `
+      <div class="field-chip-head">
+        <strong>${fieldLabel(field.normalized_field)}</strong>
+        <em>${Math.round((field.confidence || 0) * 100)}%</em>
+      </div>
+      <span>${escapeHtml(field.raw_value)}</span>
+      <small>票面标签：${escapeHtml(field.raw_label || "-")}</small>
+      <small>证据：${escapeHtml(field.evidence?.text || "-")}</small>
+    `;
     qs("extractionSummary").appendChild(chip);
   });
 }
 
 function renderResult(result) {
+  lastVerification = result;
   qs("summary").innerHTML = `
     <span class="badge">总体：${result.overall_status === "pass" ? "通过" : "需关注"}</span>
     <span class="badge danger">高风险：${result.summary.high}</span>
@@ -206,9 +232,24 @@ function renderResult(result) {
     <span class="badge">低风险：${result.summary.low}</span>
     <span class="badge ok">一致：${result.summary.match}</span>
   `;
+  renderResultItems();
+}
+
+function renderResultItems() {
+  if (!lastVerification) return;
   const box = qs("results");
   box.innerHTML = "";
-  [...result.items].sort((a, b) => riskRank(a) - riskRank(b)).forEach((item) => box.appendChild(renderItem(result.sample_id, item)));
+  const items = [...lastVerification.items].sort((a, b) => riskRank(a) - riskRank(b));
+  const filtered = items.filter((item) => {
+    if (resultFilter === "all") return true;
+    if (resultFilter === "match") return item.status === "match";
+    return item.status !== "match";
+  });
+  if (!filtered.length) {
+    box.innerHTML = `<div class="empty-state">${resultFilter === "risks" ? "没有需要关注的风险项。" : "没有符合筛选条件的结果。"}</div>`;
+    return;
+  }
+  filtered.forEach((item) => box.appendChild(renderItem(lastVerification.sample_id, item)));
 }
 
 function renderItem(sampleId, item) {
@@ -216,10 +257,13 @@ function renderItem(sampleId, item) {
   const css = item.status === "match" ? "match" : item.risk_level;
   div.className = `result-card ${css}`;
   div.innerHTML = `
-    <div class="result-head"><strong>${item.display_name}</strong><span>${statusText(item.status)}</span></div>
+    <div class="result-head">
+      <strong>${item.display_name}</strong>
+      <span class="result-status ${css}">${statusText(item.status)}</span>
+    </div>
     <div class="compare-values">
       <div><b>系统值</b><p>${empty(item.system_value)}</p></div>
-      <div><b>票面值</b><p>${empty(item.document_value)}</p></div>
+      <div class="${item.status === "mismatch" ? "attention-value" : ""}"><b>票面值</b><p>${empty(item.document_value)}</p></div>
     </div>
     <div class="meta">${item.message}</div>
     <div class="meta">证据：${item.evidence.text || "-"} (${item.evidence.region_hint || "-"}) · 置信度 ${Math.round((item.confidence || 0) * 100)}%</div>
@@ -244,6 +288,7 @@ function renderItem(sampleId, item) {
 function clearResults() {
   qs("summary").innerHTML = "";
   qs("results").innerHTML = "";
+  lastVerification = null;
 }
 
 function renderTemplateList() {
@@ -479,6 +524,13 @@ function riskRank(item) {
   return { high: 1, medium: 2, low: 3 }[item.risk_level] || 5;
 }
 
+function confidenceClass(confidence) {
+  const value = Number(confidence || 0);
+  if (value >= 0.85) return "conf-high";
+  if (value >= 0.6) return "conf-mid";
+  return "conf-low";
+}
+
 function feedbackButton(action, label) {
   return `<button data-action="${action}">${label}</button>`;
 }
@@ -496,6 +548,13 @@ function escapeHtml(value) {
 }
 
 document.querySelectorAll(".tabs button").forEach((btn) => (btn.onclick = () => showTab(btn.dataset.tab)));
+document.querySelectorAll(".result-filters button").forEach((btn) => {
+  btn.onclick = () => {
+    resultFilter = btn.dataset.resultFilter;
+    document.querySelectorAll(".result-filters button").forEach((x) => x.classList.toggle("active", x === btn));
+    renderResultItems();
+  };
+});
 qs("startPreAudit").onclick = () => startPreAudit().catch((err) => {
   qs("aiStatus").textContent = "预审失败";
   qs("modelTestResult").textContent = friendlyError(err);

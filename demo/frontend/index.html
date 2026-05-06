@@ -63,20 +63,32 @@
 
         <section class="extraction-panel">
           <div class="panel-head">
-            <h2>AI 提取结果</h2>
+            <div>
+              <h2>AI 提取结果</h2>
+              <p class="hint">这里展示 AI 从票面读到的字段，以及它映射到的系统字段。点击“开始 AI 预审”后会替换为真实模型结果。</p>
+            </div>
             <div class="panel-actions">
               <button id="showExtractionJson">查看结构化 JSON</button>
               <button id="runCustomVerify">仅运行规则核验</button>
             </div>
           </div>
+          <div id="extractionStatus" class="extract-status"></div>
           <div id="extractionSummary" class="field-chip-list"></div>
           <textarea id="customExtraction" class="collapsed-json" spellcheck="false"></textarea>
         </section>
 
         <section class="result-panel">
           <div class="panel-head">
-            <h2>风险核验结果</h2>
+            <div>
+              <h2>风险核验结果</h2>
+              <p class="hint">默认只展示需要权签人关注的风险项，通过项可展开查看。</p>
+            </div>
             <div class="summary" id="summary"></div>
+          </div>
+          <div class="result-filters">
+            <button class="active" data-result-filter="risks">仅看风险</button>
+            <button data-result-filter="all">查看全部</button>
+            <button data-result-filter="match">查看通过项</button>
           </div>
           <div id="results"></div>
         </section>
