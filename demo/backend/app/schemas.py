@@ -74,3 +74,9 @@ class FeedbackRequest(BaseModel):
     action: Literal["confirm_match", "confirm_mismatch", "ai_error", "ignore", "submit_optimization"]
     corrected_value: str | None = None
     note: str | None = None
+
+
+class CustomVerificationRequest(BaseModel):
+    sample_id: str = "custom_input"
+    payment_instruction: dict[str, Any]
+    extraction: ExtractionResult

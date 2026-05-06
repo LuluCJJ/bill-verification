@@ -10,46 +10,74 @@
     <header class="topbar">
       <div>
         <h1>权签票据一致性 AI 预审</h1>
-        <p>系统指令、票面识别、规则比对、配置管理和反馈闭环 Demo</p>
+        <p>系统指令、票面文档、风险结果和业务配置的端到端 Demo</p>
       </div>
-      <div id="health" class="pill">checking</div>
+      <div class="top-actions">
+        <button id="langToggle">English</button>
+        <div id="health" class="pill">checking</div>
+      </div>
     </header>
 
-    <main class="shell">
-      <aside class="sidebar">
-        <h2>样例任务</h2>
-        <div id="sampleList" class="sample-list"></div>
-
-        <h2>配置管理</h2>
-        <div class="config-tabs">
-          <button data-config="field_schema.json">字段 Schema</button>
-          <button data-config="field_aliases.json">字段别名</button>
-          <button data-config="mapping_rules.json">映射规则</button>
+    <main class="workspace">
+      <section class="toolbar">
+        <div>
+          <h2>任务来源</h2>
+          <div id="sampleList" class="sample-list"></div>
         </div>
-        <textarea id="configEditor" spellcheck="false"></textarea>
-        <button id="saveConfig" class="primary">保存配置</button>
-      </aside>
+        <div class="mode-note">
+          <strong>当前核验模式</strong>
+          <p>样例任务默认使用预置的票面识别结果，不会自动调用多模态模型。模型连通和图片输入测试请使用 <code>scripts/test_model_api.py</code>；后续可将上传文档接入真实模型提取。</p>
+        </div>
+        <button id="runVerify" class="primary">运行样例核验</button>
+      </section>
 
-      <section class="document-panel">
+      <section class="input-panel">
         <div class="panel-head">
-          <h2 id="sampleTitle">请选择样例</h2>
-          <button id="runVerify" class="primary">运行核验</button>
+          <h2>自定义输入</h2>
+          <button id="runCustomVerify" class="primary">运行自定义核验</button>
         </div>
-        <iframe id="documentFrame" title="票据预览"></iframe>
+        <div class="custom-grid">
+          <div>
+            <label>上传文档预览</label>
+            <input id="documentUpload" type="file" accept="image/*,.pdf,.svg" />
+            <div id="uploadHint" class="hint">支持图片/SVG/PDF 预览。当前自定义核验需在右侧粘贴票面结构化结果。</div>
+          </div>
+          <div>
+            <label>票面结构化结果 JSON</label>
+            <textarea id="customExtraction" spellcheck="false"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="comparison">
+        <div class="business-card">
+          <div class="panel-head">
+            <h2 id="systemTitle">系统支付指令</h2>
+            <button id="fillFromSample">使用当前样例填充</button>
+          </div>
+          <div id="paymentForm" class="payment-form"></div>
+        </div>
+        <div class="business-card">
+          <h2 id="documentTitle">票面文档预览</h2>
+          <iframe id="documentFrame" title="票据预览"></iframe>
+        </div>
       </section>
 
       <section class="result-panel">
-        <div class="summary" id="summary"></div>
-        <div class="split">
-          <div>
-            <h2>系统支付指令</h2>
-            <pre id="paymentJson"></pre>
-          </div>
-          <div>
-            <h2>风险结果</h2>
-            <div id="results"></div>
-          </div>
+        <div class="panel-head">
+          <h2>风险结果</h2>
+          <div class="summary" id="summary"></div>
         </div>
+        <div id="results"></div>
+      </section>
+
+      <section class="config-panel">
+        <div class="panel-head">
+          <h2>业务配置</h2>
+          <button id="saveBusinessConfig" class="primary">保存字段配置</button>
+        </div>
+        <p class="hint">这里把技术 JSON 转成业务同事可理解的配置：字段是否参与展示、风险等级、比对方式。底层仍保存到字段 Schema，后续可以由 MAP 管理。</p>
+        <div id="businessConfig"></div>
       </section>
     </main>
 

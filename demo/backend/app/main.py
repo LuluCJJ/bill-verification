@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from .comparator import verify
 from .extractor import extraction_from_static
 from .model_client import ModelClient
-from .schemas import FeedbackRequest, ModelImageTestRequest, ModelTextTestRequest
+from .schemas import CustomVerificationRequest, FeedbackRequest, ModelImageTestRequest, ModelTextTestRequest
 from .storage import ROOT, ensure_runtime_dirs, load_config, load_sample, load_samples, save_config, save_feedback
 
 
@@ -51,6 +51,12 @@ def verify_sample(sample_id: str) -> dict:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     extraction = extraction_from_static(sample["expected_result"])
     result = verify(sample_id, sample["payment_instruction"], extraction, load_config("field_schema.json"))
+    return result.model_dump()
+
+
+@app.post("/api/verify-custom")
+def verify_custom(payload: CustomVerificationRequest) -> dict:
+    result = verify(payload.sample_id, payload.payment_instruction, payload.extraction, load_config("field_schema.json"))
     return result.model_dump()
 
 
