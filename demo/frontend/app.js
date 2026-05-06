@@ -1,5 +1,7 @@
 let selectedSample = null;
 let fieldSchema = {};
+let fieldAliases = {};
+let mappingRules = {};
 let currentLang = "zh";
 let uploadedDocument = null;
 
@@ -91,9 +93,12 @@ async function init() {
   const health = await api("/api/health");
   qs("health").textContent = health.status;
   fieldSchema = await api("/api/config/field_schema.json");
+  fieldAliases = await api("/api/config/field_aliases.json");
+  mappingRules = await api("/api/config/mapping_rules.json");
   await loadModelSettings();
   renderPaymentForm({});
   renderBusinessConfig();
+  renderAiTuningConfig();
   await loadSamples();
 }
 
@@ -169,7 +174,7 @@ async function loadModelSettings() {
   qs("modelApiKey").placeholder = settings.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
 }
 
-async function saveModelSettings() {
+async function saveModelSettings(showMessage = true) {
   const payload = {
     base_url: qs("modelBaseUrl").value.trim(),
     model: qs("modelName").value.trim(),
@@ -179,11 +184,14 @@ async function saveModelSettings() {
   const result = await api("/api/model/settings", { method: "PUT", body: JSON.stringify(payload) });
   qs("modelApiKey").value = "";
   qs("modelApiKey").placeholder = result.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
-  qs("modelTestResult").textContent = "模型配置已保存。";
+  if (showMessage) {
+    qs("modelTestResult").textContent = result.api_key_set ? "模型配置已保存，API Key 已保存到本地。" : "模型配置已保存，但 API Key 为空，暂时不能调用模型。";
+  }
 }
 
 async function testTextModel() {
   qs("modelTestResult").textContent = "测试中...";
+  await saveModelSettings(false);
   const result = await api("/api/model/test", {
     method: "POST",
     body: JSON.stringify({ prompt: qs("modelPrompt").value }),
@@ -193,6 +201,7 @@ async function testTextModel() {
 
 async function testImageModel() {
   qs("modelTestResult").textContent = "图片测试中...";
+  await saveModelSettings(false);
   const image = await currentImagePayload();
   const result = await api("/api/model/test", {
     method: "POST",
@@ -207,6 +216,7 @@ async function testImageModel() {
 
 async function extractWithModel() {
   qs("modelTestResult").textContent = "正在调用 AI 提取票面字段...";
+  await saveModelSettings(false);
   const image = await currentImagePayload();
   const result = await api("/api/extract-with-model", {
     method: "POST",
@@ -306,6 +316,62 @@ function renderBusinessConfig() {
   box.appendChild(table);
 }
 
+function renderAiTuningConfig() {
+  const box = qs("aiTuningConfig");
+  box.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "tuning-grid";
+  Object.entries(fieldSchema).forEach(([field]) => {
+    const card = document.createElement("div");
+    card.className = "tuning-card";
+    card.innerHTML = `
+      <strong>${fieldLabel(field)}</strong>
+      <div class="tech-key">${field}</div>
+      <label>票面常见叫法<input data-field="${field}" data-kind="aliases" value="${escapeHtml((fieldAliases[field] || []).join('、'))}" /></label>
+      <label>位置/模板提示<input data-field="${field}" data-kind="hint" value="${escapeHtml(templateHintFor(field))}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
+      <label>业务说明<input data-field="${field}" data-kind="note" value="${escapeHtml(mappingRules.business_notes?.[field] || '')}" placeholder="给配置人员看的说明" /></label>
+    `;
+    wrap.appendChild(card);
+  });
+  box.appendChild(wrap);
+}
+
+function templateHintFor(field) {
+  const rules = mappingRules.template_rules || [];
+  for (const rule of rules) {
+    if (rule.hints?.[field]) return rule.hints[field];
+  }
+  return "";
+}
+
+async function saveAiTuning() {
+  const aliases = {};
+  const notes = {};
+  const hints = {};
+  document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
+    const field = input.dataset.field;
+    if (input.dataset.kind === "aliases") {
+      aliases[field] = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
+    }
+    if (input.dataset.kind === "hint") {
+      hints[field] = input.value.trim();
+    }
+    if (input.dataset.kind === "note") {
+      notes[field] = input.value.trim();
+    }
+  });
+  fieldAliases = aliases;
+  mappingRules.business_notes = notes;
+  mappingRules.template_rules = mappingRules.template_rules || [];
+  const demoRule = mappingRules.template_rules[0] || { template_id: "business_demo", document_type: "demo", country: "GLOBAL", hints: {} };
+  demoRule.hints = { ...(demoRule.hints || {}), ...hints };
+  mappingRules.template_rules[0] = demoRule;
+  await api("/api/config/field_aliases.json", { method: "PUT", body: JSON.stringify(fieldAliases) });
+  await api("/api/config/mapping_rules.json", { method: "PUT", body: JSON.stringify(mappingRules) });
+  qs("saveAiTuning").textContent = "已保存";
+  setTimeout(() => (qs("saveAiTuning").textContent = "保存调优配置"), 1200);
+}
+
 async function saveBusinessConfig() {
   document.querySelectorAll("#businessConfig select").forEach((select) => {
     fieldSchema[select.dataset.field][select.dataset.prop] = select.value;
@@ -331,6 +397,7 @@ function toggleLang() {
   qs("langToggle").textContent = currentLang === "zh" ? "English" : "中文";
   renderPaymentForm(readPaymentForm());
   renderBusinessConfig();
+  renderAiTuningConfig();
 }
 
 function fillFromSample() {
@@ -403,13 +470,28 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
 }
 
+function friendlyError(err) {
+  const message = String(err?.message || err);
+  if (message.includes("LLM_BASE_URL") || message.includes("LLM_API_KEY")) {
+    return "模型调用失败：接口地址或 API Key 没有保存成功。请填写 API Key 后点击“保存模型配置”，或直接点击测试按钮自动保存后重试。";
+  }
+  if (message.includes("401") || message.includes("Unauthorized")) {
+    return "模型调用失败：API Key 鉴权失败，请确认 Key 是否正确或是否有该模型权限。";
+  }
+  if (message.includes("404")) {
+    return "模型调用失败：接口地址或模型名称可能不正确。请确认 OpenAI-compatible 地址是否应以 /v3 结尾，以及模型名称是否可用。";
+  }
+  return `模型调用失败：${message}`;
+}
+
 qs("runVerify").onclick = runVerify;
 qs("runCustomVerify").onclick = runCustomVerify;
-qs("extractWithModel").onclick = () => extractWithModel().catch((err) => (qs("modelTestResult").textContent = err.message));
+qs("extractWithModel").onclick = () => extractWithModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
-qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = err.message));
-qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = err.message));
-qs("testImageModel").onclick = () => testImageModel().catch((err) => (qs("modelTestResult").textContent = err.message));
+qs("saveAiTuning").onclick = saveAiTuning;
+qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
+qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
+qs("testImageModel").onclick = () => testImageModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("documentUpload").onchange = previewUpload;
 qs("langToggle").onclick = toggleLang;
 qs("fillFromSample").onclick = fillFromSample;

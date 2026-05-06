@@ -34,7 +34,7 @@ class ModelClient:
         }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
-            response.raise_for_status()
+            self._raise_for_status(response)
             return response.json()
 
     async def chat_image(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
@@ -56,8 +56,15 @@ class ModelClient:
         }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
-            response.raise_for_status()
+            self._raise_for_status(response)
             return response.json()
+
+    def _raise_for_status(self, response: httpx.Response) -> None:
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            body = response.text[:1200]
+            raise RuntimeError(f"Model API returned {response.status_code}: {body}") from exc
 
 
 def encode_file_base64(path: Path) -> str:

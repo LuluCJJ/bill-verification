@@ -275,6 +275,20 @@ table {
   border-collapse: collapse;
 }
 
+.tuning-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.tuning-card {
+  border: 1px solid #d9e0e7;
+  border-radius: 6px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
 th,
 td {
   border-bottom: 1px solid #e1e7ed;
@@ -291,6 +305,10 @@ td {
   .payment-form,
   .result-head,
   .compare-values {
+    grid-template-columns: 1fr;
+  }
+
+  .tuning-grid {
     grid-template-columns: 1fr;
   }
 }

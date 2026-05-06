@@ -102,6 +102,15 @@
         <p class="hint">这里把技术 JSON 转成业务同事可理解的配置：字段是否参与展示、风险等级、比对方式。底层仍保存到字段 Schema，后续可以由 MAP 管理。</p>
         <div id="businessConfig"></div>
       </section>
+
+      <section class="config-panel">
+        <div class="panel-head">
+          <h2>AI 调优配置</h2>
+          <button id="saveAiTuning" class="primary">保存调优配置</button>
+        </div>
+        <p class="hint">这里用于让业务同事把“这张票上怎么叫、通常在哪个位置、AI 下次应如何理解”配置进去。它不会要求业务理解模型参数或 prompt。</p>
+        <div id="aiTuningConfig"></div>
+      </section>
     </main>
 
     <script src="/app.js"></script>

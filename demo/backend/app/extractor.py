@@ -4,7 +4,7 @@ from typing import Any
 
 from .model_client import ModelClient
 from .schemas import ExtractionResult
-from .storage import load_local_config
+from .storage import load_config, load_local_config
 
 
 EXTRACTION_PROMPT = """
@@ -22,7 +22,25 @@ EXTRACTION_PROMPT = """
 付款方名称 payer_name，付款方账号 payer_account，付款方银行 payer_bank，收款方名称 beneficiary_name，
 收款方账号 beneficiary_account，收款方银行 beneficiary_bank，SWIFT/BIC swift_code，IBAN iban，
 币种 currency，金额 amount，大写金额 amount_in_words，付款日期 payment_date，付款用途 purpose，费用承担 charge_bearer。
+
+业务配置补充：
+{business_config}
 """
+
+
+def build_extraction_prompt() -> str:
+    aliases = load_config("field_aliases.json")
+    rules = load_config("mapping_rules.json")
+    parts = []
+    for field, names in aliases.items():
+        if names:
+            parts.append(f"- {field} 的票面常见叫法：{', '.join(names)}")
+    for rule in rules.get("template_rules", []):
+        hints = rule.get("hints", {})
+        if hints:
+            parts.append(f"- 模板 {rule.get('template_id', 'unknown')} 位置提示：" + "; ".join(f"{k}: {v}" for k, v in hints.items()))
+    business_config = "\n".join(parts) if parts else "无"
+    return EXTRACTION_PROMPT.format(business_config=business_config)
 
 
 def parse_model_json(payload: dict[str, Any]) -> dict[str, Any]:
@@ -35,12 +53,58 @@ def parse_model_json(payload: dict[str, Any]) -> dict[str, Any]:
     return json.loads(match.group(0))
 
 
+def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any]) -> dict[str, Any]:
+    fields = parsed.get("extracted_fields") or parsed.get("fields") or []
+    normalized_fields = []
+    for field in fields:
+        evidence = field.get("evidence") or {}
+        if isinstance(evidence, str):
+            evidence = {"page": 1, "text": evidence, "region_hint": ""}
+        else:
+            evidence = {
+                "page": evidence.get("page", 1),
+                "text": evidence.get("text", ""),
+                "region_hint": evidence.get("region_hint", evidence.get("region", "")),
+            }
+        normalized_fields.append(
+            {
+                "normalized_field": field.get("normalized_field") or field.get("field") or "",
+                "raw_label": field.get("raw_label", ""),
+                "raw_value": field.get("raw_value", field.get("value", "")),
+                "confidence": field.get("confidence", 0.0),
+                "evidence": evidence,
+                "mapping_source": field.get("mapping_source", "ai"),
+            }
+        )
+
+    special_risks = []
+    for risk in parsed.get("special_risks", []):
+        evidence = risk.get("evidence") or {}
+        if isinstance(evidence, str):
+            evidence = {"page": 1, "text": evidence, "region_hint": ""}
+        special_risks.append(
+            {
+                "type": risk.get("type", "special_risk"),
+                "text": risk.get("text", ""),
+                "confidence": risk.get("confidence", 0.0),
+                "evidence": evidence,
+            }
+        )
+
+    return {
+        "sample_id": parsed.get("sample_id"),
+        "document_type": parsed.get("document_type", "unknown"),
+        "extracted_fields": normalized_fields,
+        "special_risks": special_risks,
+        "raw_model_output": raw_payload,
+    }
+
+
 async def extract_with_model(image_base64: str, mime_type: str = "image/png") -> ExtractionResult:
     client = ModelClient(load_local_config().get("model_settings", {}))
-    payload = await client.chat_image(EXTRACTION_PROMPT, image_base64, mime_type)
+    payload = await client.chat_image(build_extraction_prompt(), image_base64, mime_type)
     parsed = parse_model_json(payload)
-    parsed["raw_model_output"] = payload
-    return ExtractionResult.model_validate(parsed)
+    return ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload))
 
 
 def extraction_from_static(expected_result: dict[str, Any]) -> ExtractionResult:
