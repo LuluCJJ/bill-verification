@@ -4,27 +4,19 @@ let fieldAliases = {};
 let mappingRules = {};
 let currentLang = "zh";
 let uploadedDocument = null;
+let lastExtraction = null;
 
 const qs = (id) => document.getElementById(id);
 
-const fieldOrder = [
-  "payer_name",
-  "payer_account",
-  "payer_bank",
-  "beneficiary_name",
-  "beneficiary_account",
-  "beneficiary_bank",
-  "swift_code",
-  "iban",
-  "intermediary_bank",
-  "currency",
-  "amount",
-  "amount_in_words",
-  "payment_date",
-  "purpose",
-  "charge_bearer",
-  "non_transferable",
-];
+const groups = {
+  payer: { title: "付款方信息", fields: ["payer_name", "payer_account", "payer_bank", "payer_bank_code"] },
+  beneficiary: { title: "收款方信息", fields: ["beneficiary_name", "beneficiary_account", "beneficiary_bank", "beneficiary_bank_address", "swift_code", "iban", "intermediary_bank"] },
+  amount: { title: "金额信息", fields: ["currency", "amount", "amount_in_words"] },
+  transaction: { title: "交易信息", fields: ["payment_date", "purpose", "charge_bearer"] },
+  risk: { title: "特殊风险", fields: ["non_transferable"] },
+};
+
+const fieldOrder = Object.values(groups).flatMap((group) => group.fields);
 
 const labels = {
   zh: {
@@ -90,16 +82,17 @@ async function api(path, options = {}) {
 }
 
 async function init() {
-  const health = await api("/api/health");
-  qs("health").textContent = health.status;
+  qs("health").textContent = (await api("/api/health")).status;
   fieldSchema = await api("/api/config/field_schema.json");
   fieldAliases = await api("/api/config/field_aliases.json");
   mappingRules = await api("/api/config/mapping_rules.json");
   await loadModelSettings();
   renderPaymentForm({});
+  renderTemplateList();
   renderBusinessConfig();
   renderAiTuningConfig();
   await loadSamples();
+  renderFeedbackList();
 }
 
 async function loadSamples() {
@@ -119,23 +112,32 @@ async function selectSample(sampleId, button) {
   document.querySelectorAll(".sample-list button").forEach((x) => x.classList.remove("active"));
   button.classList.add("active");
   selectedSample = await api(`/api/samples/${sampleId}`);
+  uploadedDocument = null;
+  lastExtraction = selectedSample.expected_result;
   qs("documentFrame").src = selectedSample.image_path;
+  qs("currentTemplate").textContent = selectedSample.template_id || "-";
+  qs("aiStatus").textContent = "等待预审";
+  qs("uploadHint").textContent = "当前使用样例票据。点击“开始 AI 预审”会调用真实模型提取票面字段。";
   fillPayment(selectedSample.payment_instruction);
-  qs("customExtraction").value = JSON.stringify(selectedSample.expected_result, null, 2);
-  qs("summary").innerHTML = "";
-  qs("results").innerHTML = "";
+  renderExtraction(selectedSample.expected_result, "预置样例结果，仅作对照");
+  clearResults();
 }
 
 function renderPaymentForm(values) {
   const box = qs("paymentForm");
   box.innerHTML = "";
-  const keys = [...new Set([...fieldOrder, ...Object.keys(values)])].filter((key) => key !== "non_transferable");
-  keys.forEach((key) => {
-    const row = document.createElement("label");
-    row.className = "field-row";
-    row.innerHTML = `<span>${fieldLabel(key)}</span><input data-field="${key}" value="${escapeHtml(values[key] ?? "")}" />`;
-    box.appendChild(row);
-  });
+  for (const group of Object.values(groups)) {
+    const groupBox = document.createElement("div");
+    groupBox.className = "payment-group";
+    groupBox.innerHTML = `<h3>${group.title}</h3>`;
+    group.fields.filter((key) => key !== "non_transferable").forEach((key) => {
+      const row = document.createElement("label");
+      row.className = "field-row";
+      row.innerHTML = `<span>${fieldLabel(key)}</span><input data-field="${key}" value="${escapeHtml(values[key] ?? "")}" />`;
+      groupBox.appendChild(row);
+    });
+    box.appendChild(groupBox);
+  }
 }
 
 function fillPayment(values) {
@@ -150,86 +152,50 @@ function readPaymentForm() {
   return data;
 }
 
-async function runVerify() {
-  if (!selectedSample) return;
-  const result = await api(`/api/verify/${selectedSample.id}`, { method: "POST" });
-  renderResult(result);
+async function startPreAudit() {
+  if (!selectedSample && !uploadedDocument) throw new Error("请先选择任务或上传票据。");
+  qs("aiStatus").textContent = "AI 提取中";
+  clearResults();
+  await saveModelSettings(false);
+  const image = await currentImagePayload();
+  ensureModelImageType(image.mimeType);
+  const extraction = await api("/api/extract-with-model", {
+    method: "POST",
+    body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
+  });
+  lastExtraction = extraction;
+  renderExtraction(extraction, "真实模型提取结果");
+  qs("aiStatus").textContent = "规则核验中";
+  await runCustomVerify();
+  qs("aiStatus").textContent = "预审完成";
 }
 
 async function runCustomVerify() {
-  const payment = readPaymentForm();
-  const extraction = JSON.parse(qs("customExtraction").value);
+  if (!lastExtraction) {
+    lastExtraction = JSON.parse(qs("customExtraction").value);
+  }
   const result = await api("/api/verify-custom", {
     method: "POST",
-    body: JSON.stringify({ sample_id: "custom_input", payment_instruction: payment, extraction }),
+    body: JSON.stringify({ sample_id: selectedSample?.id || "custom_input", payment_instruction: readPaymentForm(), extraction: lastExtraction }),
   });
   renderResult(result);
 }
 
-async function loadModelSettings() {
-  const settings = await api("/api/model/settings");
-  qs("modelBaseUrl").value = settings.base_url || "https://ark.cn-beijing.volces.com/api/coding/v3";
-  qs("modelName").value = settings.model || "Doubao-Seed-2.0-pro";
-  qs("modelTimeout").value = settings.timeout || 60;
-  qs("modelApiKey").placeholder = settings.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
-}
-
-async function saveModelSettings(showMessage = true) {
-  const payload = {
-    base_url: qs("modelBaseUrl").value.trim(),
-    model: qs("modelName").value.trim(),
-    api_key: qs("modelApiKey").value,
-    timeout: Number(qs("modelTimeout").value || 60),
-  };
-  const result = await api("/api/model/settings", { method: "PUT", body: JSON.stringify(payload) });
-  qs("modelApiKey").value = "";
-  qs("modelApiKey").placeholder = result.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
-  if (showMessage) {
-    qs("modelTestResult").textContent = result.api_key_set ? "模型配置已保存，API Key 已保存到本地。" : "模型配置已保存，但 API Key 为空，暂时不能调用模型。";
-  }
-}
-
-async function testTextModel() {
-  qs("modelTestResult").textContent = "测试中...";
-  await saveModelSettings(false);
-  const result = await api("/api/model/test", {
-    method: "POST",
-    body: JSON.stringify({ prompt: qs("modelPrompt").value }),
+function renderExtraction(extraction, sourceLabel) {
+  lastExtraction = extraction;
+  qs("customExtraction").value = JSON.stringify(extraction, null, 2);
+  const fields = extraction.extracted_fields || [];
+  qs("extractionSummary").innerHTML = `
+    <span class="badge">${sourceLabel}</span>
+    <span class="badge">字段 ${fields.length}</span>
+    ${(extraction.special_risks || []).length ? `<span class="badge warn">特殊提示 ${(extraction.special_risks || []).length}</span>` : ""}
+  `;
+  fields.forEach((field) => {
+    const chip = document.createElement("div");
+    chip.className = "field-chip";
+    chip.innerHTML = `<strong>${fieldLabel(field.normalized_field)}</strong><span>${escapeHtml(field.raw_value)}</span><em>${Math.round((field.confidence || 0) * 100)}%</em>`;
+    qs("extractionSummary").appendChild(chip);
   });
-  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
-}
-
-async function testImageModel() {
-  qs("modelTestResult").textContent = "图片测试中...";
-  await saveModelSettings(false);
-  const image = await currentImagePayload();
-  ensureModelImageType(image.mimeType);
-  const result = await api("/api/model/test", {
-    method: "POST",
-    body: JSON.stringify({
-      prompt: "请识别这张付款文件中的收款人、金额、币种、账号等关键信息，用简短中文回答。",
-      image_base64: image.base64,
-      mime_type: image.mimeType,
-    }),
-  });
-  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
-}
-
-async function extractWithModel() {
-  qs("modelTestResult").textContent = "正在调用 AI 提取票面字段...";
-  await saveModelSettings(false);
-  const image = await currentImagePayload();
-  ensureModelImageType(image.mimeType);
-  const result = await api("/api/extract-with-model", {
-    method: "POST",
-    body: JSON.stringify({
-      prompt: "请从票据中提取结构化字段。",
-      image_base64: image.base64,
-      mime_type: image.mimeType,
-    }),
-  });
-  qs("customExtraction").value = JSON.stringify(result, null, 2);
-  qs("modelTestResult").textContent = "AI 提取完成，结果已写入票面结构化结果 JSON。";
 }
 
 function renderResult(result) {
@@ -250,10 +216,7 @@ function renderItem(sampleId, item) {
   const css = item.status === "match" ? "match" : item.risk_level;
   div.className = `result-card ${css}`;
   div.innerHTML = `
-    <div class="result-head">
-      <strong>${item.display_name}</strong>
-      <span>${statusText(item.status)}</span>
-    </div>
+    <div class="result-head"><strong>${item.display_name}</strong><span>${statusText(item.status)}</span></div>
     <div class="compare-values">
       <div><b>系统值</b><p>${empty(item.system_value)}</p></div>
       <div><b>票面值</b><p>${empty(item.document_value)}</p></div>
@@ -270,80 +233,60 @@ function renderItem(sampleId, item) {
   `;
   div.querySelectorAll("button").forEach((button) => {
     button.onclick = async () => {
-      await api("/api/feedback", {
-        method: "POST",
-        body: JSON.stringify({ sample_id: sampleId, field: item.field, action: button.dataset.action }),
-      });
+      await api("/api/feedback", { method: "POST", body: JSON.stringify({ sample_id: sampleId, field: item.field, action: button.dataset.action }) });
       button.textContent = "已保存";
+      renderFeedbackList();
     };
   });
   return div;
 }
 
-function renderBusinessConfig() {
-  const box = qs("businessConfig");
-  box.innerHTML = "";
-  const table = document.createElement("table");
-  table.innerHTML = `
-    <thead><tr><th>字段</th><th>风险等级</th><th>比对方式</th><th>票面未出现时</th></tr></thead>
-    <tbody></tbody>
-  `;
-  const body = table.querySelector("tbody");
-  Object.entries(fieldSchema).forEach(([field, meta]) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${fieldLabel(field)}<div class="tech-key">${field}</div></td>
-      <td>
-        <select data-field="${field}" data-prop="risk_level">
-          ${option("high", "高风险", meta.risk_level)}
-          ${option("medium", "中风险", meta.risk_level)}
-          ${option("low", "低风险", meta.risk_level)}
-        </select>
-      </td>
-      <td>
-        <select data-field="${field}" data-prop="compare_type">
-          ${Object.entries(compareLabels).map(([value, label]) => option(value, label, meta.compare_type)).join("")}
-        </select>
-      </td>
-      <td>
-        <select data-field="${field}" data-prop="document_presence">
-          ${option("optional", "不提示，仅核对已出现字段", meta.document_presence)}
-          ${option("required", "必须出现在票面", meta.document_presence)}
-          ${option("special_risk", "作为特殊票面提示", meta.document_presence)}
-        </select>
-      </td>
-    `;
-    body.appendChild(row);
-  });
-  box.appendChild(table);
+function clearResults() {
+  qs("summary").innerHTML = "";
+  qs("results").innerHTML = "";
 }
 
-function renderAiTuningConfig() {
+function renderTemplateList() {
+  const box = qs("templateList");
+  box.innerHTML = "";
+  (mappingRules.template_rules || []).forEach((template, index) => {
+    const btn = document.createElement("button");
+    btn.textContent = `${template.country || "GLOBAL"} / ${template.document_type || "document"} / ${template.template_id}`;
+    btn.onclick = () => selectTemplate(index, btn);
+    box.appendChild(btn);
+  });
+  if (box.querySelector("button")) box.querySelector("button").click();
+}
+
+function selectTemplate(index, button) {
+  document.querySelectorAll("#templateList button").forEach((x) => x.classList.remove("active"));
+  button.classList.add("active");
+  const template = mappingRules.template_rules[index];
+  qs("templateTitle").textContent = `模板调优：${template.template_id}`;
+  renderAiTuningConfig(template);
+}
+
+function renderAiTuningConfig(template = (mappingRules.template_rules || [])[0]) {
   const box = qs("aiTuningConfig");
   box.innerHTML = "";
-  const wrap = document.createElement("div");
-  wrap.className = "tuning-grid";
-  Object.entries(fieldSchema).forEach(([field]) => {
-    const card = document.createElement("div");
-    card.className = "tuning-card";
-    card.innerHTML = `
-      <strong>${fieldLabel(field)}</strong>
-      <div class="tech-key">${field}</div>
-      <label>票面常见叫法<input data-field="${field}" data-kind="aliases" value="${escapeHtml((fieldAliases[field] || []).join('、'))}" /></label>
-      <label>位置/模板提示<input data-field="${field}" data-kind="hint" value="${escapeHtml(templateHintFor(field))}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
-      <label>业务说明<input data-field="${field}" data-kind="note" value="${escapeHtml(mappingRules.business_notes?.[field] || '')}" placeholder="给配置人员看的说明" /></label>
-    `;
-    wrap.appendChild(card);
-  });
-  box.appendChild(wrap);
-}
-
-function templateHintFor(field) {
-  const rules = mappingRules.template_rules || [];
-  for (const rule of rules) {
-    if (rule.hints?.[field]) return rule.hints[field];
+  for (const group of Object.values(groups)) {
+    const groupBox = document.createElement("section");
+    groupBox.className = "tuning-group";
+    groupBox.innerHTML = `<h3>${group.title}</h3>`;
+    group.fields.forEach((field) => {
+      if (!fieldSchema[field]) return;
+      const card = document.createElement("details");
+      card.className = "tuning-card";
+      card.innerHTML = `
+        <summary>${fieldLabel(field)} <span>${field}</span></summary>
+        <label>票面常见叫法<input data-field="${field}" data-kind="aliases" value="${escapeHtml((fieldAliases[field] || []).join("、"))}" /></label>
+        <label>位置/模板提示<input data-field="${field}" data-kind="hint" value="${escapeHtml(template?.hints?.[field] || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
+        <label>AI 识别要求<input data-field="${field}" data-kind="note" value="${escapeHtml(mappingRules.business_notes?.[field] || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
+      `;
+      groupBox.appendChild(card);
+    });
+    box.appendChild(groupBox);
   }
-  return "";
 }
 
 async function saveAiTuning() {
@@ -352,26 +295,40 @@ async function saveAiTuning() {
   const hints = {};
   document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
     const field = input.dataset.field;
-    if (input.dataset.kind === "aliases") {
-      aliases[field] = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
-    }
-    if (input.dataset.kind === "hint") {
-      hints[field] = input.value.trim();
-    }
-    if (input.dataset.kind === "note") {
-      notes[field] = input.value.trim();
-    }
+    if (input.dataset.kind === "aliases") aliases[field] = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
+    if (input.dataset.kind === "hint") hints[field] = input.value.trim();
+    if (input.dataset.kind === "note") notes[field] = input.value.trim();
   });
   fieldAliases = aliases;
   mappingRules.business_notes = notes;
   mappingRules.template_rules = mappingRules.template_rules || [];
-  const demoRule = mappingRules.template_rules[0] || { template_id: "business_demo", document_type: "demo", country: "GLOBAL", hints: {} };
-  demoRule.hints = { ...(demoRule.hints || {}), ...hints };
-  mappingRules.template_rules[0] = demoRule;
+  const active = document.querySelector("#templateList button.active");
+  const index = [...document.querySelectorAll("#templateList button")].indexOf(active);
+  const targetIndex = index >= 0 ? index : 0;
+  mappingRules.template_rules[targetIndex].hints = { ...(mappingRules.template_rules[targetIndex].hints || {}), ...hints };
   await api("/api/config/field_aliases.json", { method: "PUT", body: JSON.stringify(fieldAliases) });
   await api("/api/config/mapping_rules.json", { method: "PUT", body: JSON.stringify(mappingRules) });
   qs("saveAiTuning").textContent = "已保存";
   setTimeout(() => (qs("saveAiTuning").textContent = "保存调优配置"), 1200);
+}
+
+function renderBusinessConfig() {
+  const box = qs("businessConfig");
+  box.innerHTML = "";
+  const table = document.createElement("table");
+  table.innerHTML = `<thead><tr><th>字段</th><th>风险等级</th><th>比对方式</th><th>票面未出现时</th></tr></thead><tbody></tbody>`;
+  const body = table.querySelector("tbody");
+  Object.entries(fieldSchema).forEach(([field, meta]) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${fieldLabel(field)}<div class="tech-key">${field}</div></td>
+      <td><select data-field="${field}" data-prop="risk_level">${option("high", "高风险", meta.risk_level)}${option("medium", "中风险", meta.risk_level)}${option("low", "低风险", meta.risk_level)}</select></td>
+      <td><select data-field="${field}" data-prop="compare_type">${Object.entries(compareLabels).map(([value, label]) => option(value, label, meta.compare_type)).join("")}</select></td>
+      <td><select data-field="${field}" data-prop="document_presence">${option("optional", "不提示，仅核对已出现字段", meta.document_presence)}${option("required", "必须出现在票面", meta.document_presence)}${option("special_risk", "作为特殊票面提示", meta.document_presence)}</select></td>
+    `;
+    body.appendChild(row);
+  });
+  box.appendChild(table);
 }
 
 async function saveBusinessConfig() {
@@ -383,6 +340,52 @@ async function saveBusinessConfig() {
   setTimeout(() => (qs("saveBusinessConfig").textContent = "保存字段配置"), 1200);
 }
 
+async function renderFeedbackList() {
+  const box = qs("feedbackList");
+  box.innerHTML = "";
+  box.innerHTML = `<div class="empty-state">反馈会保存到本地 data/feedback。当前 Demo 暂展示新提交按钮状态，后续可增加后端列表接口聚合高频问题。</div>`;
+}
+
+async function loadModelSettings() {
+  const settings = await api("/api/model/settings");
+  qs("modelBaseUrl").value = settings.base_url || "https://ark.cn-beijing.volces.com/api/coding/v3";
+  qs("modelName").value = settings.model || "Doubao-Seed-2.0-pro";
+  qs("modelTimeout").value = settings.timeout || 60;
+  qs("modelApiKey").placeholder = settings.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
+}
+
+async function saveModelSettings(showMessage = true) {
+  const payload = {
+    base_url: qs("modelBaseUrl").value.trim(),
+    model: qs("modelName").value.trim(),
+    api_key: qs("modelApiKey").value,
+    timeout: Number(qs("modelTimeout").value || 60),
+  };
+  const result = await api("/api/model/settings", { method: "PUT", body: JSON.stringify(payload) });
+  qs("modelApiKey").value = "";
+  qs("modelApiKey").placeholder = result.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
+  if (showMessage) qs("modelTestResult").textContent = result.api_key_set ? "模型配置已保存，API Key 已保存到本地。" : "模型配置已保存，但 API Key 为空，暂时不能调用模型。";
+}
+
+async function testTextModel() {
+  qs("modelTestResult").textContent = "测试中...";
+  await saveModelSettings(false);
+  const result = await api("/api/model/test", { method: "POST", body: JSON.stringify({ prompt: qs("modelPrompt").value }) });
+  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
+}
+
+async function testImageModel() {
+  qs("modelTestResult").textContent = "图片测试中...";
+  await saveModelSettings(false);
+  const image = await currentImagePayload();
+  ensureModelImageType(image.mimeType);
+  const result = await api("/api/model/test", {
+    method: "POST",
+    body: JSON.stringify({ prompt: "请识别这张付款文件中的收款人、金额、币种、账号等关键信息，用简短中文回答。", image_base64: image.base64, mime_type: image.mimeType }),
+  });
+  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
+}
+
 function previewUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -391,19 +394,7 @@ function previewUpload(event) {
   fileToBase64(file).then((payload) => {
     uploadedDocument = payload;
   });
-  qs("uploadHint").textContent = `已选择：${file.name}。可以点击“调用 AI 提取票面字段”测试真实多模态模型。`;
-}
-
-function toggleLang() {
-  currentLang = currentLang === "zh" ? "en" : "zh";
-  qs("langToggle").textContent = currentLang === "zh" ? "English" : "中文";
-  renderPaymentForm(readPaymentForm());
-  renderBusinessConfig();
-  renderAiTuningConfig();
-}
-
-function fillFromSample() {
-  if (selectedSample) fillPayment(selectedSample.payment_instruction);
+  qs("uploadHint").textContent = `已选择：${file.name}。点击“开始 AI 预审”会把该文件发送给模型。`;
 }
 
 async function currentImagePayload() {
@@ -421,32 +412,58 @@ function fileToBase64(file) {
 function blobToBase64(blob, mimeType) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result);
-      resolve({ base64: dataUrl.split(",")[1], mimeType });
-    };
+    reader.onload = () => resolve({ base64: String(reader.result).split(",")[1], mimeType });
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
 }
 
-function mimeFromPath(path) {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".svg")) return "image/svg+xml";
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".pdf")) return "application/pdf";
-  return "image/png";
+function showTab(tabId) {
+  document.querySelectorAll(".tabs button").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabId));
+  document.querySelectorAll(".tab-page").forEach((page) => page.classList.toggle("active", page.id === tabId));
+}
+
+function toggleExtractionJson() {
+  qs("customExtraction").classList.toggle("collapsed-json");
+  qs("showExtractionJson").textContent = qs("customExtraction").classList.contains("collapsed-json") ? "查看结构化 JSON" : "收起结构化 JSON";
+}
+
+function toggleLang() {
+  currentLang = currentLang === "zh" ? "en" : "zh";
+  qs("langToggle").textContent = currentLang === "zh" ? "English" : "中文";
+  fillPayment(readPaymentForm());
+  renderBusinessConfig();
+  renderAiTuningConfig();
+}
+
+function fillFromSample() {
+  if (selectedSample) fillPayment(selectedSample.payment_instruction);
 }
 
 function ensureModelImageType(mimeType) {
-  if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(mimeType)) {
-    throw new Error(`当前模型测试仅支持 PNG/JPG/WebP 图片。当前文件类型是 ${mimeType}，请先转换为图片后再测试。`);
-  }
+  if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(mimeType)) throw new Error(`当前模型测试仅支持 PNG/JPG/WebP 图片。当前文件类型是 ${mimeType}，请先转换为图片后再测试。`);
+}
+
+function mimeFromPath(path) {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  if (lower.endsWith(".svg")) return "image/svg+xml";
+  return "image/png";
 }
 
 function simplifyModelResult(result) {
   const message = result?.choices?.[0]?.message?.content;
   return message ? { content: message } : result;
+}
+
+function friendlyError(err) {
+  const message = String(err?.message || err);
+  if (message.includes("LLM_BASE_URL") || message.includes("LLM_API_KEY")) return "模型调用失败：接口地址或 API Key 没有保存成功。请填写 API Key 后点击“保存模型配置”。";
+  if (message.includes("401") || message.includes("Unauthorized")) return "模型调用失败：API Key 鉴权失败，请确认 Key 是否正确或是否有该模型权限。";
+  if (message.includes("404")) return "模型调用失败：接口地址或模型名称可能不正确。";
+  return `模型调用失败：${message}`;
 }
 
 function option(value, label, selected) {
@@ -478,25 +495,17 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
 }
 
-function friendlyError(err) {
-  const message = String(err?.message || err);
-  if (message.includes("LLM_BASE_URL") || message.includes("LLM_API_KEY")) {
-    return "模型调用失败：接口地址或 API Key 没有保存成功。请填写 API Key 后点击“保存模型配置”，或直接点击测试按钮自动保存后重试。";
-  }
-  if (message.includes("401") || message.includes("Unauthorized")) {
-    return "模型调用失败：API Key 鉴权失败，请确认 Key 是否正确或是否有该模型权限。";
-  }
-  if (message.includes("404")) {
-    return "模型调用失败：接口地址或模型名称可能不正确。请确认 OpenAI-compatible 地址是否应以 /v3 结尾，以及模型名称是否可用。";
-  }
-  return `模型调用失败：${message}`;
-}
-
-qs("runVerify").onclick = runVerify;
-qs("runCustomVerify").onclick = runCustomVerify;
-qs("extractWithModel").onclick = () => extractWithModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
+document.querySelectorAll(".tabs button").forEach((btn) => (btn.onclick = () => showTab(btn.dataset.tab)));
+qs("startPreAudit").onclick = () => startPreAudit().catch((err) => {
+  qs("aiStatus").textContent = "预审失败";
+  qs("modelTestResult").textContent = friendlyError(err);
+  showTab("settingsTab");
+});
+qs("runCustomVerify").onclick = () => runCustomVerify().catch((err) => alert(friendlyError(err)));
+qs("showExtractionJson").onclick = toggleExtractionJson;
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
 qs("saveAiTuning").onclick = saveAiTuning;
+qs("refreshFeedback").onclick = renderFeedbackList;
 qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testImageModel").onclick = () => testImageModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));

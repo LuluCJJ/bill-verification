@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>权签票据一致性 AI 预审</h1>
-        <p>系统指令、票面文档、风险结果和业务配置的端到端 Demo</p>
+        <p>从付款任务、票面识别、风险核验到模板调优的产品原型</p>
       </div>
       <div class="top-actions">
         <button id="langToggle">English</button>
@@ -18,98 +18,126 @@
       </div>
     </header>
 
+    <nav class="tabs">
+      <button class="active" data-tab="verifyTab">付款核验</button>
+      <button data-tab="templateTab">模板调优</button>
+      <button data-tab="feedbackTab">反馈样本</button>
+      <button data-tab="settingsTab">系统设置</button>
+    </nav>
+
     <main class="workspace">
-      <section class="toolbar">
-        <div>
-          <h2>任务来源</h2>
-          <div id="sampleList" class="sample-list"></div>
-        </div>
-        <div class="mode-note">
-          <strong>当前核验模式</strong>
-          <p>样例任务默认使用预置的票面识别结果，不会自动调用多模态模型。模型连通和图片输入测试请使用 <code>scripts/test_model_api.py</code>；后续可将上传文档接入真实模型提取。</p>
-        </div>
-        <button id="runVerify" class="primary">运行样例核验</button>
-      </section>
-
-      <section class="input-panel">
-        <div class="panel-head">
-          <h2>自定义输入</h2>
-          <div class="panel-actions">
-            <button id="extractWithModel">调用 AI 提取票面字段</button>
-            <button id="runCustomVerify" class="primary">运行自定义核验</button>
-          </div>
-        </div>
-        <div class="custom-grid">
+      <section id="verifyTab" class="tab-page active">
+        <section class="task-bar">
           <div>
-            <label>上传文档预览</label>
-            <input id="documentUpload" type="file" accept="image/*,.pdf,.svg" />
-            <div id="uploadHint" class="hint">支持图片/SVG/PDF 预览。当前自定义核验需在右侧粘贴票面结构化结果。</div>
+            <h2>付款任务</h2>
+            <div id="sampleList" class="sample-list"></div>
           </div>
-          <div>
-            <label>票面结构化结果 JSON</label>
-            <textarea id="customExtraction" spellcheck="false"></textarea>
+          <div class="task-status">
+            <span>当前模板</span>
+            <strong id="currentTemplate">-</strong>
           </div>
-        </div>
-      </section>
+          <div class="task-status">
+            <span>AI 状态</span>
+            <strong id="aiStatus">等待预审</strong>
+          </div>
+          <button id="startPreAudit" class="primary">开始 AI 预审</button>
+        </section>
 
-      <section class="model-panel">
-        <div class="panel-head">
-          <h2>模型配置与测试</h2>
-          <div class="panel-actions">
-            <button id="saveModelSettings" class="primary">保存模型配置</button>
-            <button id="testTextModel">测试文本</button>
-            <button id="testImageModel">测试图片</button>
+        <section class="comparison">
+          <div class="business-card">
+            <div class="panel-head">
+              <h2 id="systemTitle">系统支付指令</h2>
+              <button id="fillFromSample">恢复样例指令</button>
+            </div>
+            <div id="paymentForm" class="payment-form"></div>
           </div>
-        </div>
-        <p class="hint">配置保存到本地 <code>config.local.json</code>，不会提交到 Git。API Key 不会在页面回显；留空保存时沿用已保存的 Key。</p>
-        <div class="model-grid">
-          <label>接口地址<input id="modelBaseUrl" placeholder="https://.../v3" /></label>
-          <label>模型名称<input id="modelName" placeholder="Doubao-Seed-2.0-pro" /></label>
-          <label>API Key<input id="modelApiKey" type="password" placeholder="留空表示不修改已保存 Key" /></label>
-          <label>超时时间（秒）<input id="modelTimeout" type="number" value="60" /></label>
-        </div>
-        <textarea id="modelPrompt" spellcheck="false">请用一句话回复：模型连通测试成功。</textarea>
-        <pre id="modelTestResult" class="model-result"></pre>
-      </section>
+          <div class="business-card">
+            <div class="panel-head">
+              <h2 id="documentTitle">票面文档</h2>
+              <label class="upload-button">上传测试文件<input id="documentUpload" type="file" accept="image/*,.pdf,.svg" /></label>
+            </div>
+            <iframe id="documentFrame" title="票据预览"></iframe>
+            <div id="uploadHint" class="hint">选择样例任务后会自动加载票据。上传文件仅用于测试任务。</div>
+          </div>
+        </section>
 
-      <section class="comparison">
-        <div class="business-card">
+        <section class="extraction-panel">
           <div class="panel-head">
-            <h2 id="systemTitle">系统支付指令</h2>
-            <button id="fillFromSample">使用当前样例填充</button>
+            <h2>AI 提取结果</h2>
+            <div class="panel-actions">
+              <button id="showExtractionJson">查看结构化 JSON</button>
+              <button id="runCustomVerify">仅运行规则核验</button>
+            </div>
           </div>
-          <div id="paymentForm" class="payment-form"></div>
-        </div>
-        <div class="business-card">
-          <h2 id="documentTitle">票面文档预览</h2>
-          <iframe id="documentFrame" title="票据预览"></iframe>
-        </div>
+          <div id="extractionSummary" class="field-chip-list"></div>
+          <textarea id="customExtraction" class="collapsed-json" spellcheck="false"></textarea>
+        </section>
+
+        <section class="result-panel">
+          <div class="panel-head">
+            <h2>风险核验结果</h2>
+            <div class="summary" id="summary"></div>
+          </div>
+          <div id="results"></div>
+        </section>
       </section>
 
-      <section class="result-panel">
-        <div class="panel-head">
-          <h2>风险结果</h2>
-          <div class="summary" id="summary"></div>
-        </div>
-        <div id="results"></div>
+      <section id="templateTab" class="tab-page">
+        <section class="template-layout">
+          <aside class="template-list">
+            <h2>模板列表</h2>
+            <div id="templateList"></div>
+          </aside>
+          <div class="template-detail">
+            <div class="panel-head">
+              <div>
+                <h2 id="templateTitle">模板调优</h2>
+                <p class="hint">按模板维护字段叫法、位置提示和 AI 识别要求，避免不同银行规则互相冲突。</p>
+              </div>
+              <button id="saveAiTuning" class="primary">保存调优配置</button>
+            </div>
+            <div class="field-groups" id="aiTuningConfig"></div>
+            <details class="secondary-config">
+              <summary>字段比对口径配置</summary>
+              <p class="hint">这部分后续更适合由 MAP 管理。Demo 中保留用于展示风险等级和比对方式。</p>
+              <div id="businessConfig"></div>
+              <button id="saveBusinessConfig" class="primary">保存字段配置</button>
+            </details>
+          </div>
+        </section>
       </section>
 
-      <section class="config-panel">
-        <div class="panel-head">
-          <h2>业务配置</h2>
-          <button id="saveBusinessConfig" class="primary">保存字段配置</button>
-        </div>
-        <p class="hint">这里把技术 JSON 转成业务同事可理解的配置：字段是否参与展示、风险等级、比对方式。底层仍保存到字段 Schema，后续可以由 MAP 管理。</p>
-        <div id="businessConfig"></div>
+      <section id="feedbackTab" class="tab-page">
+        <section class="business-card">
+          <div class="panel-head">
+            <h2>反馈样本池</h2>
+            <button id="refreshFeedback">刷新反馈</button>
+          </div>
+          <p class="hint">权签人在核验页提交的“AI 识别错误、确认不一致、提交优化”等反馈会进入这里。后续可从这里转成模板调优规则。</p>
+          <div id="feedbackList" class="feedback-list"></div>
+        </section>
       </section>
 
-      <section class="config-panel">
-        <div class="panel-head">
-          <h2>AI 调优配置</h2>
-          <button id="saveAiTuning" class="primary">保存调优配置</button>
-        </div>
-        <p class="hint">这里用于让业务同事把“这张票上怎么叫、通常在哪个位置、AI 下次应如何理解”配置进去。它不会要求业务理解模型参数或 prompt。</p>
-        <div id="aiTuningConfig"></div>
+      <section id="settingsTab" class="tab-page">
+        <section class="model-panel">
+          <div class="panel-head">
+            <h2>模型配置与测试</h2>
+            <div class="panel-actions">
+              <button id="saveModelSettings" class="primary">保存模型配置</button>
+              <button id="testTextModel">测试文本</button>
+              <button id="testImageModel">测试图片</button>
+            </div>
+          </div>
+          <p class="hint">配置保存到本地 <code>config.local.json</code>，不会提交到 Git。API Key 不会在页面回显；留空保存时沿用已保存的 Key。</p>
+          <div class="model-grid">
+            <label>接口地址<input id="modelBaseUrl" placeholder="https://.../v3" /></label>
+            <label>模型名称<input id="modelName" placeholder="Doubao-Seed-2.0-pro" /></label>
+            <label>API Key<input id="modelApiKey" type="password" placeholder="留空表示不修改已保存 Key" /></label>
+            <label>超时时间（秒）<input id="modelTimeout" type="number" value="60" /></label>
+          </div>
+          <textarea id="modelPrompt" spellcheck="false">请用一句话回复：模型连通测试成功。</textarea>
+          <pre id="modelTestResult" class="model-result"></pre>
+        </section>
       </section>
     </main>
 
