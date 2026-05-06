@@ -399,3 +399,11 @@ Demo 中需要体现两类映射能力的组合：
 3. 确认模型能稳定输出约定 JSON。
 4. 将上传文档接口接入 `extract_with_model`。
 5. 页面上增加“调用 AI 提取票面字段”按钮，替代手工粘贴票面结构化结果。
+
+当前实现已补充页面级模型配置：
+
+- 在 Demo 页面填写 OpenAI-compatible 接口地址、模型名称、API Key 和超时时间。
+- 配置保存到本地 `config.local.json`，不提交到 Git。
+- 页面支持文本连通测试和图片输入测试。
+- 页面支持把当前预览文档发送给模型，提取结果会写入“票面结构化结果 JSON”区域，再进入自定义核验。
+- 火山方舟地址 `https://ark.cn-beijing.volces.com/api/coding/v3` 和模型名 `Doubao-Seed-2.0-pro` 已作为默认示例配置。

@@ -1,6 +1,7 @@
 let selectedSample = null;
 let fieldSchema = {};
 let currentLang = "zh";
+let uploadedDocument = null;
 
 const qs = (id) => document.getElementById(id);
 
@@ -90,6 +91,7 @@ async function init() {
   const health = await api("/api/health");
   qs("health").textContent = health.status;
   fieldSchema = await api("/api/config/field_schema.json");
+  await loadModelSettings();
   renderPaymentForm({});
   renderBusinessConfig();
   await loadSamples();
@@ -157,6 +159,65 @@ async function runCustomVerify() {
     body: JSON.stringify({ sample_id: "custom_input", payment_instruction: payment, extraction }),
   });
   renderResult(result);
+}
+
+async function loadModelSettings() {
+  const settings = await api("/api/model/settings");
+  qs("modelBaseUrl").value = settings.base_url || "https://ark.cn-beijing.volces.com/api/coding/v3";
+  qs("modelName").value = settings.model || "Doubao-Seed-2.0-pro";
+  qs("modelTimeout").value = settings.timeout || 60;
+  qs("modelApiKey").placeholder = settings.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
+}
+
+async function saveModelSettings() {
+  const payload = {
+    base_url: qs("modelBaseUrl").value.trim(),
+    model: qs("modelName").value.trim(),
+    api_key: qs("modelApiKey").value,
+    timeout: Number(qs("modelTimeout").value || 60),
+  };
+  const result = await api("/api/model/settings", { method: "PUT", body: JSON.stringify(payload) });
+  qs("modelApiKey").value = "";
+  qs("modelApiKey").placeholder = result.api_key_set ? "已保存，留空不修改" : "请输入 API Key";
+  qs("modelTestResult").textContent = "模型配置已保存。";
+}
+
+async function testTextModel() {
+  qs("modelTestResult").textContent = "测试中...";
+  const result = await api("/api/model/test", {
+    method: "POST",
+    body: JSON.stringify({ prompt: qs("modelPrompt").value }),
+  });
+  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
+}
+
+async function testImageModel() {
+  qs("modelTestResult").textContent = "图片测试中...";
+  const image = await currentImagePayload();
+  const result = await api("/api/model/test", {
+    method: "POST",
+    body: JSON.stringify({
+      prompt: "请识别这张付款文件中的收款人、金额、币种、账号等关键信息，用简短中文回答。",
+      image_base64: image.base64,
+      mime_type: image.mimeType,
+    }),
+  });
+  qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
+}
+
+async function extractWithModel() {
+  qs("modelTestResult").textContent = "正在调用 AI 提取票面字段...";
+  const image = await currentImagePayload();
+  const result = await api("/api/extract-with-model", {
+    method: "POST",
+    body: JSON.stringify({
+      prompt: "请从票据中提取结构化字段。",
+      image_base64: image.base64,
+      mime_type: image.mimeType,
+    }),
+  });
+  qs("customExtraction").value = JSON.stringify(result, null, 2);
+  qs("modelTestResult").textContent = "AI 提取完成，结果已写入票面结构化结果 JSON。";
 }
 
 function renderResult(result) {
@@ -259,7 +320,10 @@ function previewUpload(event) {
   if (!file) return;
   const url = URL.createObjectURL(file);
   qs("documentFrame").src = url;
-  qs("uploadHint").textContent = `已选择：${file.name}。当前页面先做预览，真实模型提取接入后会把该文件传给多模态模型。`;
+  fileToBase64(file).then((payload) => {
+    uploadedDocument = payload;
+  });
+  qs("uploadHint").textContent = `已选择：${file.name}。可以点击“调用 AI 提取票面字段”测试真实多模态模型。`;
 }
 
 function toggleLang() {
@@ -271,6 +335,43 @@ function toggleLang() {
 
 function fillFromSample() {
   if (selectedSample) fillPayment(selectedSample.payment_instruction);
+}
+
+async function currentImagePayload() {
+  if (uploadedDocument) return uploadedDocument;
+  if (!selectedSample) throw new Error("请先选择样例或上传文档。");
+  const response = await fetch(selectedSample.image_path);
+  const blob = await response.blob();
+  return blobToBase64(blob, blob.type || mimeFromPath(selectedSample.image_path));
+}
+
+function fileToBase64(file) {
+  return blobToBase64(file, file.type || mimeFromPath(file.name));
+}
+
+function blobToBase64(blob, mimeType) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      resolve({ base64: dataUrl.split(",")[1], mimeType });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+function mimeFromPath(path) {
+  const lower = path.toLowerCase();
+  if (lower.endsWith(".svg")) return "image/svg+xml";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".pdf")) return "application/pdf";
+  return "image/png";
+}
+
+function simplifyModelResult(result) {
+  const message = result?.choices?.[0]?.message?.content;
+  return message ? { content: message } : result;
 }
 
 function option(value, label, selected) {
@@ -304,7 +405,11 @@ function escapeHtml(value) {
 
 qs("runVerify").onclick = runVerify;
 qs("runCustomVerify").onclick = runCustomVerify;
+qs("extractWithModel").onclick = () => extractWithModel().catch((err) => (qs("modelTestResult").textContent = err.message));
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
+qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = err.message));
+qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = err.message));
+qs("testImageModel").onclick = () => testImageModel().catch((err) => (qs("modelTestResult").textContent = err.message));
 qs("documentUpload").onchange = previewUpload;
 qs("langToggle").onclick = toggleLang;
 qs("fillFromSample").onclick = fillFromSample;

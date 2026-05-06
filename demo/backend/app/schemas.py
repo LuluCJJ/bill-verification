@@ -68,6 +68,19 @@ class ModelImageTestRequest(BaseModel):
     mime_type: str = "image/png"
 
 
+class ModelSettings(BaseModel):
+    base_url: str
+    model: str
+    api_key: str | None = None
+    timeout: float = 60
+
+
+class ModelTestRequest(BaseModel):
+    prompt: str = "请用一句话回复：模型连通测试成功。"
+    image_base64: str | None = None
+    mime_type: str = "image/png"
+
+
 class FeedbackRequest(BaseModel):
     sample_id: str
     field: str

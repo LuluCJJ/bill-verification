@@ -58,6 +58,7 @@ body {
 
 .toolbar,
 .input-panel,
+.model-panel,
 .business-card,
 .result-panel,
 .config-panel {
@@ -118,10 +119,15 @@ button.active {
 }
 
 .comparison,
-.custom-grid {
+.custom-grid,
+.model-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+.model-grid {
+  grid-template-columns: 1.3fr 1fr 1.2fr 0.6fr;
 }
 
 .panel-head {
@@ -129,6 +135,12 @@ button.active {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .payment-form {
@@ -159,6 +171,21 @@ textarea {
   height: 190px;
   font-family: Consolas, monospace;
   font-size: 12px;
+}
+
+.model-panel textarea {
+  height: 80px;
+  margin-top: 12px;
+}
+
+.model-result {
+  max-height: 220px;
+  overflow: auto;
+  background: #f7f9fb;
+  border: 1px solid #d9e0e7;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
 }
 
 iframe {
@@ -260,6 +287,7 @@ td {
   .toolbar,
   .comparison,
   .custom-grid,
+  .model-grid,
   .payment-form,
   .result-head,
   .compare-values {

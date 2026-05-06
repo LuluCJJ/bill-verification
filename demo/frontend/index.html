@@ -34,7 +34,10 @@
       <section class="input-panel">
         <div class="panel-head">
           <h2>自定义输入</h2>
-          <button id="runCustomVerify" class="primary">运行自定义核验</button>
+          <div class="panel-actions">
+            <button id="extractWithModel">调用 AI 提取票面字段</button>
+            <button id="runCustomVerify" class="primary">运行自定义核验</button>
+          </div>
         </div>
         <div class="custom-grid">
           <div>
@@ -47,6 +50,26 @@
             <textarea id="customExtraction" spellcheck="false"></textarea>
           </div>
         </div>
+      </section>
+
+      <section class="model-panel">
+        <div class="panel-head">
+          <h2>模型配置与测试</h2>
+          <div class="panel-actions">
+            <button id="saveModelSettings" class="primary">保存模型配置</button>
+            <button id="testTextModel">测试文本</button>
+            <button id="testImageModel">测试图片</button>
+          </div>
+        </div>
+        <p class="hint">配置保存到本地 <code>config.local.json</code>，不会提交到 Git。API Key 不会在页面回显；留空保存时沿用已保存的 Key。</p>
+        <div class="model-grid">
+          <label>接口地址<input id="modelBaseUrl" placeholder="https://.../v3" /></label>
+          <label>模型名称<input id="modelName" placeholder="Doubao-Seed-2.0-pro" /></label>
+          <label>API Key<input id="modelApiKey" type="password" placeholder="留空表示不修改已保存 Key" /></label>
+          <label>超时时间（秒）<input id="modelTimeout" type="number" value="60" /></label>
+        </div>
+        <textarea id="modelPrompt" spellcheck="false">请用一句话回复：模型连通测试成功。</textarea>
+        <pre id="modelTestResult" class="model-result"></pre>
       </section>
 
       <section class="comparison">

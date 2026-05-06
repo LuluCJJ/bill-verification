@@ -50,9 +50,9 @@ def build_messages(args) -> list:
 def main() -> None:
     load_env_file()
     parser = argparse.ArgumentParser(description="Test OpenAI-compatible text or vision API.")
-    parser.add_argument("--base-url", default=os.getenv("LLM_BASE_URL", ""))
+    parser.add_argument("--base-url", default=os.getenv("LLM_BASE_URL", "https://ark.cn-beijing.volces.com/api/coding/v3"))
     parser.add_argument("--api-key", default=os.getenv("LLM_API_KEY", ""))
-    parser.add_argument("--model", default=os.getenv("LLM_MODEL", "qwen3.5-35b-a3b"))
+    parser.add_argument("--model", default=os.getenv("LLM_MODEL", "Doubao-Seed-2.0-pro"))
     parser.add_argument("--prompt", default="请用一句话回复：模型连通测试成功。")
     parser.add_argument("--image", help="Optional local image path for vision test.")
     parser.add_argument("--timeout", type=int, default=int(os.getenv("LLM_TIMEOUT", "60")))

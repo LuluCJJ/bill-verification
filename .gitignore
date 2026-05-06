@@ -14,6 +14,7 @@ __pycache__/
 # Local config and secrets
 .env
 .env.*
+!.env.example
 config.local.json
 secrets.json
 
@@ -34,4 +35,3 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
-

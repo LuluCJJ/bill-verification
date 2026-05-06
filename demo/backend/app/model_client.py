@@ -7,11 +7,12 @@ import httpx
 
 
 class ModelClient:
-    def __init__(self) -> None:
-        self.base_url = os.getenv("LLM_BASE_URL", "").rstrip("/")
-        self.api_key = os.getenv("LLM_API_KEY", "")
-        self.model = os.getenv("LLM_MODEL", "qwen3.5-35b-a3b")
-        self.timeout = float(os.getenv("LLM_TIMEOUT", "60"))
+    def __init__(self, settings: dict[str, Any] | None = None) -> None:
+        settings = settings or {}
+        self.base_url = (settings.get("base_url") or os.getenv("LLM_BASE_URL", "")).rstrip("/")
+        self.api_key = settings.get("api_key") or os.getenv("LLM_API_KEY", "")
+        self.model = settings.get("model") or os.getenv("LLM_MODEL", "qwen3.5-35b-a3b")
+        self.timeout = float(settings.get("timeout") or os.getenv("LLM_TIMEOUT", "60"))
 
     @property
     def configured(self) -> bool:

@@ -15,7 +15,7 @@
     "document_type": "telegraphic_transfer",
     "country": "GLOBAL",
     "template_id": "global_tt_standard",
-    "image_path": "/samples/documents/global_tt_amount_mismatch.svg",
+    "image_path": "/samples/documents/model_test_tt.png",
     "payment_instruction_path": "data/payment_instructions/global_tt_amount_mismatch.json",
     "expected_result_path": "data/expected_results/global_tt_amount_mismatch.json"
   },

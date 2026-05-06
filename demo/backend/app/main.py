@@ -6,10 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .comparator import verify
-from .extractor import extraction_from_static
+from .extractor import extract_with_model, extraction_from_static
 from .model_client import ModelClient
-from .schemas import CustomVerificationRequest, FeedbackRequest, ModelImageTestRequest, ModelTextTestRequest
-from .storage import ROOT, ensure_runtime_dirs, load_config, load_sample, load_samples, save_config, save_feedback
+from .schemas import CustomVerificationRequest, FeedbackRequest, ModelImageTestRequest, ModelSettings, ModelTestRequest, ModelTextTestRequest
+from .storage import ROOT, ensure_runtime_dirs, load_config, load_local_config, load_sample, load_samples, save_config, save_feedback, save_local_config
 
 
 app = FastAPI(title="Bill Verification Demo", version="0.1.0")
@@ -83,7 +83,7 @@ def feedback(payload: FeedbackRequest):
 
 @app.post("/api/model/test-text")
 async def test_model_text(payload: ModelTextTestRequest):
-    client = ModelClient()
+    client = ModelClient(load_local_config().get("model_settings", {}))
     try:
         return await client.chat_text(payload.prompt)
     except Exception as exc:
@@ -92,9 +92,56 @@ async def test_model_text(payload: ModelTextTestRequest):
 
 @app.post("/api/model/test-image")
 async def test_model_image(payload: ModelImageTestRequest):
-    client = ModelClient()
+    client = ModelClient(load_local_config().get("model_settings", {}))
     try:
         return await client.chat_image(payload.prompt, payload.image_base64, payload.mime_type)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/model/settings")
+def get_model_settings() -> dict:
+    settings = load_local_config().get("model_settings", {})
+    return {
+        "base_url": settings.get("base_url", ""),
+        "model": settings.get("model", ""),
+        "timeout": settings.get("timeout", 60),
+        "api_key_set": bool(settings.get("api_key")),
+        "api_key": "",
+    }
+
+
+@app.put("/api/model/settings")
+def put_model_settings(payload: ModelSettings) -> dict:
+    local_config = load_local_config()
+    existing = local_config.get("model_settings", {})
+    api_key = payload.api_key if payload.api_key is not None and payload.api_key != "" else existing.get("api_key", "")
+    local_config["model_settings"] = {
+        "base_url": payload.base_url.rstrip("/"),
+        "model": payload.model,
+        "api_key": api_key,
+        "timeout": payload.timeout,
+    }
+    save_local_config(local_config)
+    return {"status": "saved", "api_key_set": bool(api_key)}
+
+
+@app.post("/api/model/test")
+async def test_saved_model(payload: ModelTestRequest):
+    client = ModelClient(load_local_config().get("model_settings", {}))
+    try:
+        if payload.image_base64:
+            return await client.chat_image(payload.prompt, payload.image_base64, payload.mime_type)
+        return await client.chat_text(payload.prompt)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/extract-with-model")
+async def extract_model(payload: ModelImageTestRequest):
+    try:
+        extraction = await extract_with_model(payload.image_base64, payload.mime_type)
+        return extraction.model_dump()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

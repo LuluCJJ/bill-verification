@@ -9,6 +9,7 @@ DATA_DIR = ROOT / "data"
 SAMPLES_DIR = DATA_DIR / "samples"
 RESULTS_DIR = DATA_DIR / "results"
 FEEDBACK_DIR = DATA_DIR / "feedback"
+LOCAL_CONFIG_PATH = ROOT / "config.local.json"
 
 
 def ensure_runtime_dirs() -> None:
@@ -60,3 +61,13 @@ def save_feedback(payload: dict[str, Any]) -> Path:
     existing.append(payload)
     write_json(path, existing)
     return path
+
+
+def load_local_config() -> dict[str, Any]:
+    if not LOCAL_CONFIG_PATH.exists():
+        return {}
+    return read_json(LOCAL_CONFIG_PATH)
+
+
+def save_local_config(data: dict[str, Any]) -> None:
+    write_json(LOCAL_CONFIG_PATH, data)

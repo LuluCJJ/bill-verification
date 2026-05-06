@@ -4,6 +4,7 @@ from typing import Any
 
 from .model_client import ModelClient
 from .schemas import ExtractionResult
+from .storage import load_local_config
 
 
 EXTRACTION_PROMPT = """
@@ -35,7 +36,7 @@ def parse_model_json(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def extract_with_model(image_base64: str, mime_type: str = "image/png") -> ExtractionResult:
-    client = ModelClient()
+    client = ModelClient(load_local_config().get("model_settings", {}))
     payload = await client.chat_image(EXTRACTION_PROMPT, image_base64, mime_type)
     parsed = parse_model_json(payload)
     parsed["raw_model_output"] = payload
