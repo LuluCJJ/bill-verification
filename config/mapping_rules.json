@@ -1,0 +1,35 @@
+{
+  "strategy": {
+    "ai_semantic_weight": 0.6,
+    "alias_weight": 0.2,
+    "template_rule_weight": 0.2,
+    "final_compare_owner": "MAP"
+  },
+  "template_rules": [
+    {
+      "template_id": "cn_check_standard",
+      "document_type": "check",
+      "country": "CN",
+      "hints": {
+        "beneficiary_name": "Payee line or 收款人区域",
+        "amount": "numeric amount box",
+        "amount_in_words": "amount in words line",
+        "payment_date": "top-right date area",
+        "non_transferable": "crossing or memo area"
+      }
+    },
+    {
+      "template_id": "global_tt_standard",
+      "document_type": "telegraphic_transfer",
+      "country": "GLOBAL",
+      "hints": {
+        "payer_account": "debit account section",
+        "beneficiary_name": "beneficiary section",
+        "beneficiary_bank": "beneficiary bank or account with bank section",
+        "swift_code": "SWIFT/BIC section",
+        "amount": "currency and amount section",
+        "charge_bearer": "charges section"
+      }
+    }
+  ]
+}

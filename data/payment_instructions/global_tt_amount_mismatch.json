@@ -1,0 +1,17 @@
+{
+  "payment_id": "PAY-TT-2026-0002",
+  "document_type": "telegraphic_transfer",
+  "payer_name": "Example Trading Co., Ltd.",
+  "payer_account": "123456789012",
+  "payer_bank": "Industrial and Commercial Bank of China",
+  "beneficiary_name": "Global Supplier Limited",
+  "beneficiary_account": "987654321000",
+  "beneficiary_bank": "ABC Bank Hong Kong",
+  "beneficiary_bank_address": "8 Finance Street, Central, Hong Kong",
+  "swift_code": "ABCHKHHX",
+  "currency": "USD",
+  "amount": "12500.00",
+  "payment_date": "2026-05-06",
+  "purpose": "Invoice payment INV-2026-1188",
+  "charge_bearer": "SHA"
+}

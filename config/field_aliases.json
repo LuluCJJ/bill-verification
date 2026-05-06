@@ -1,0 +1,15 @@
+{
+  "payer_name": ["drawer", "applicant", "remitter", "account holder", "付款人", "申请人", "汇款人"],
+  "payer_account": ["debit account", "from account", "account no.", "付款账号", "扣款账号"],
+  "payer_bank": ["drawer bank", "applicant bank", "remitting bank", "付款方银行", "汇款银行"],
+  "beneficiary_name": ["payee", "beneficiary", "recipient", "收款人", "受款人"],
+  "beneficiary_account": ["beneficiary account", "account number", "iban", "收款账号", "受款人账号"],
+  "beneficiary_bank": ["beneficiary bank", "receiving bank", "payee bank", "account with bank", "收款银行", "收款方开户行"],
+  "swift_code": ["swift", "bic", "swift code", "bank identifier code"],
+  "currency": ["currency", "ccy", "币种"],
+  "amount": ["amount", "transfer amount", "payment amount", "金额", "汇款金额"],
+  "payment_date": ["date", "value date", "payment date", "日期", "付款日期"],
+  "purpose": ["purpose", "remittance information", "details of payment", "付款用途", "摘要"],
+  "charge_bearer": ["charges", "charge bearer", "费用承担"],
+  "non_transferable": ["not negotiable", "a/c payee only", "account payee only", "不可转让", "只入收款人账户"]
+}

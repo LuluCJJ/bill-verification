@@ -1,0 +1,18 @@
+{
+  "sample_id": "global_tt_amount_mismatch",
+  "document_type": "telegraphic_transfer",
+  "extracted_fields": [
+    {"normalized_field": "payer_name", "raw_label": "Applicant", "raw_value": "Example Trading Co., Ltd.", "confidence": 0.95, "evidence": {"page": 1, "text": "Applicant: Example Trading Co., Ltd.", "region_hint": "upper-left"}},
+    {"normalized_field": "payer_account", "raw_label": "Debit Account", "raw_value": "123456789012", "confidence": 0.94, "evidence": {"page": 1, "text": "Debit Account: 123456789012", "region_hint": "upper-left"}},
+    {"normalized_field": "beneficiary_name", "raw_label": "Beneficiary", "raw_value": "Global Supplier Limited", "confidence": 0.97, "evidence": {"page": 1, "text": "Beneficiary: Global Supplier Limited", "region_hint": "middle-left"}},
+    {"normalized_field": "beneficiary_account", "raw_label": "Beneficiary Account", "raw_value": "987654321000", "confidence": 0.96, "evidence": {"page": 1, "text": "Beneficiary Account: 987654321000", "region_hint": "middle-left"}},
+    {"normalized_field": "beneficiary_bank", "raw_label": "Beneficiary Bank", "raw_value": "ABC Bank Hong Kong", "confidence": 0.92, "evidence": {"page": 1, "text": "Beneficiary Bank: ABC Bank Hong Kong", "region_hint": "middle-left"}},
+    {"normalized_field": "swift_code", "raw_label": "SWIFT", "raw_value": "ABCHKHHX", "confidence": 0.91, "evidence": {"page": 1, "text": "SWIFT: ABCHKHHX", "region_hint": "middle-left"}},
+    {"normalized_field": "currency", "raw_label": "Currency", "raw_value": "USD", "confidence": 0.99, "evidence": {"page": 1, "text": "Currency: USD", "region_hint": "middle-right"}},
+    {"normalized_field": "amount", "raw_label": "Amount", "raw_value": "15,200.00", "confidence": 0.98, "evidence": {"page": 1, "text": "Amount: USD 15,200.00", "region_hint": "middle-right"}},
+    {"normalized_field": "payment_date", "raw_label": "Value Date", "raw_value": "2026-05-06", "confidence": 0.93, "evidence": {"page": 1, "text": "Value Date: 2026-05-06", "region_hint": "upper-right"}},
+    {"normalized_field": "purpose", "raw_label": "Details of Payment", "raw_value": "Invoice payment INV-2026-1188", "confidence": 0.9, "evidence": {"page": 1, "text": "Details: Invoice payment INV-2026-1188", "region_hint": "lower-left"}},
+    {"normalized_field": "charge_bearer", "raw_label": "Charges", "raw_value": "SHA", "confidence": 0.89, "evidence": {"page": 1, "text": "Charges: SHA", "region_hint": "lower-right"}}
+  ],
+  "special_risks": []
+}

@@ -1,0 +1,15 @@
+{
+  "sample_id": "cn_check_pass",
+  "document_type": "check",
+  "extracted_fields": [
+    {"normalized_field": "payer_bank", "raw_label": "付款银行", "raw_value": "中国工商银行深圳分行", "confidence": 0.94, "evidence": {"page": 1, "text": "中国工商银行深圳分行", "region_hint": "top-left"}},
+    {"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.96, "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "upper-middle"}},
+    {"normalized_field": "amount", "raw_label": "金额", "raw_value": "128,500.00", "confidence": 0.98, "evidence": {"page": 1, "text": "￥128,500.00", "region_hint": "right amount box"}},
+    {"normalized_field": "amount_in_words", "raw_label": "大写金额", "raw_value": "人民币壹拾贰万捌仟伍佰元整", "confidence": 0.93, "evidence": {"page": 1, "text": "人民币壹拾贰万捌仟伍佰元整", "region_hint": "middle line"}},
+    {"normalized_field": "payment_date", "raw_label": "出票日期", "raw_value": "2026-05-06", "confidence": 0.95, "evidence": {"page": 1, "text": "出票日期 2026年05月06日", "region_hint": "top-right"}},
+    {"normalized_field": "purpose", "raw_label": "用途", "raw_value": "货款", "confidence": 0.82, "evidence": {"page": 1, "text": "用途：货款", "region_hint": "bottom-left"}}
+  ],
+  "special_risks": [
+    {"type": "non_transferable", "text": "不可转让", "confidence": 0.9, "evidence": {"page": 1, "text": "不可转让", "region_hint": "top-center"}}
+  ]
+}

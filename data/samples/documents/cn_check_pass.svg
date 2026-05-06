@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620">
+  <rect width="1200" height="620" fill="#f9fbf7"/>
+  <rect x="38" y="40" width="1124" height="540" rx="12" fill="#fffef8" stroke="#6d8f79" stroke-width="3"/>
+  <text x="70" y="86" font-family="Microsoft YaHei, Arial" font-size="30" font-weight="700" fill="#244b3f">中国工商银行深圳分行</text>
+  <text x="492" y="88" font-family="Microsoft YaHei, Arial" font-size="28" font-weight="700" fill="#244b3f">转账支票</text>
+  <text x="894" y="78" font-family="Microsoft YaHei, Arial" font-size="16" fill="#556">支票号码 CN20260506001</text>
+  <text x="898" y="112" font-family="Microsoft YaHei, Arial" font-size="18" fill="#222">出票日期 2026年05月06日</text>
+  <line x1="70" y1="150" x2="1130" y2="150" stroke="#6d8f79" stroke-width="2"/>
+  <text x="72" y="194" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">收款人：</text>
+  <text x="174" y="194" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700" fill="#111">上海星河供应链有限公司</text>
+  <rect x="820" y="166" width="280" height="70" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="842" y="210" font-family="Microsoft YaHei, Arial" font-size="28" font-weight="700" fill="#111">￥128,500.00</text>
+  <text x="72" y="270" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">人民币（大写）：</text>
+  <text x="244" y="270" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700" fill="#111">人民币壹拾贰万捌仟伍佰元整</text>
+  <text x="72" y="342" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">用途：</text>
+  <text x="142" y="342" font-family="Microsoft YaHei, Arial" font-size="22" fill="#111">货款</text>
+  <text x="470" y="342" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">收款账号：</text>
+  <text x="590" y="342" font-family="Arial" font-size="22" fill="#111">6222009988776655</text>
+  <text x="72" y="412" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">付款人账号：</text>
+  <text x="208" y="412" font-family="Arial" font-size="22" fill="#111">1020304050607080</text>
+  <text x="610" y="412" font-family="Microsoft YaHei, Arial" font-size="22" fill="#222">付款人：</text>
+  <text x="710" y="412" font-family="Microsoft YaHei, Arial" font-size="22" fill="#111">华南贸易有限公司</text>
+  <rect x="78" y="462" width="180" height="48" fill="none" stroke="#a33" stroke-width="3"/>
+  <text x="102" y="494" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700" fill="#a33">不可转让</text>
+  <text x="840" y="508" font-family="Microsoft YaHei, Arial" font-size="20" fill="#222">付款人签章：</text>
+  <circle cx="1010" cy="490" r="48" fill="none" stroke="#b83232" stroke-width="4"/>
+  <text x="960" y="498" font-family="Microsoft YaHei, Arial" font-size="18" fill="#b83232">合成样例章</text>
+  <text x="72" y="558" font-family="Consolas, monospace" font-size="18" fill="#333">1020304050607080 CN20260506001 ICBKCNBJSZN</text>
+</svg>

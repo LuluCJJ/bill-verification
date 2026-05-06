@@ -1,0 +1,15 @@
+{
+  "payment_id": "PAY-TT-2026-0003",
+  "document_type": "telegraphic_transfer",
+  "payer_name": "Northwind Manufacturing GmbH",
+  "payer_account": "DE89370400440532013000",
+  "payer_bank": "Bank of China Frankfurt Branch",
+  "beneficiary_name": "Ocean Parts Pte. Ltd.",
+  "beneficiary_account": "SG998877661122",
+  "beneficiary_bank": "DBS Bank Ltd",
+  "swift_code": "DBSSSGSG",
+  "currency": "EUR",
+  "amount": "47320.50",
+  "payment_date": "2026-05-06",
+  "purpose": "Equipment spare parts"
+}

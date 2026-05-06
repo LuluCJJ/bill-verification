@@ -1,0 +1,17 @@
+{
+  "sample_id": "global_tt_account_mismatch",
+  "document_type": "telegraphic_transfer",
+  "extracted_fields": [
+    {"normalized_field": "payer_name", "raw_label": "Applicant", "raw_value": "Northwind Manufacturing GmbH", "confidence": 0.95, "evidence": {"page": 1, "text": "Applicant: Northwind Manufacturing GmbH", "region_hint": "upper-left"}},
+    {"normalized_field": "payer_account", "raw_label": "Debit Account", "raw_value": "DE89370400440532013000", "confidence": 0.94, "evidence": {"page": 1, "text": "Debit Account: DE89370400440532013000", "region_hint": "upper-left"}},
+    {"normalized_field": "beneficiary_name", "raw_label": "Beneficiary", "raw_value": "Ocean Parts Pte. Ltd.", "confidence": 0.97, "evidence": {"page": 1, "text": "Beneficiary: Ocean Parts Pte. Ltd.", "region_hint": "middle-left"}},
+    {"normalized_field": "beneficiary_account", "raw_label": "Beneficiary Account", "raw_value": "SG998877661199", "confidence": 0.96, "evidence": {"page": 1, "text": "Beneficiary Account: SG998877661199", "region_hint": "middle-left"}},
+    {"normalized_field": "beneficiary_bank", "raw_label": "Beneficiary Bank", "raw_value": "DBS Bank Ltd", "confidence": 0.92, "evidence": {"page": 1, "text": "Beneficiary Bank: DBS Bank Ltd", "region_hint": "middle-left"}},
+    {"normalized_field": "swift_code", "raw_label": "SWIFT", "raw_value": "DBSSSGSG", "confidence": 0.91, "evidence": {"page": 1, "text": "SWIFT: DBSSSGSG", "region_hint": "middle-left"}},
+    {"normalized_field": "currency", "raw_label": "Currency", "raw_value": "EUR", "confidence": 0.99, "evidence": {"page": 1, "text": "Currency: EUR", "region_hint": "middle-right"}},
+    {"normalized_field": "amount", "raw_label": "Amount", "raw_value": "47,320.50", "confidence": 0.98, "evidence": {"page": 1, "text": "Amount: EUR 47,320.50", "region_hint": "middle-right"}},
+    {"normalized_field": "payment_date", "raw_label": "Value Date", "raw_value": "2026-05-06", "confidence": 0.93, "evidence": {"page": 1, "text": "Value Date: 2026-05-06", "region_hint": "upper-right"}},
+    {"normalized_field": "purpose", "raw_label": "Details of Payment", "raw_value": "Equipment spare parts", "confidence": 0.9, "evidence": {"page": 1, "text": "Details: Equipment spare parts", "region_hint": "lower-left"}}
+  ],
+  "special_risks": []
+}

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f6f8fb"/>
+  <rect x="42" y="34" width="1116" height="686" rx="10" fill="#fff" stroke="#7b8da3" stroke-width="2"/>
+  <text x="70" y="82" font-family="Segoe UI, Arial" font-size="32" font-weight="700" fill="#25364a">Telegraphic Transfer Application</text>
+  <text x="862" y="82" font-family="Segoe UI, Arial" font-size="18" fill="#4a5a6b">Ref: TT-2026-0002</text>
+  <text x="862" y="112" font-family="Segoe UI, Arial" font-size="18" fill="#4a5a6b">Value Date: 2026-05-06</text>
+  <rect x="70" y="140" width="500" height="160" fill="#fbfcfe" stroke="#c2ccd8"/>
+  <text x="88" y="172" font-family="Segoe UI, Arial" font-size="20" font-weight="700">Applicant / Remitter</text>
+  <text x="88" y="210" font-family="Segoe UI, Arial" font-size="18">Applicant: Example Trading Co., Ltd.</text>
+  <text x="88" y="246" font-family="Segoe UI, Arial" font-size="18">Debit Account: 123456789012</text>
+  <text x="88" y="282" font-family="Segoe UI, Arial" font-size="18">Remitting Bank: Industrial and Commercial Bank of China</text>
+  <rect x="628" y="140" width="470" height="160" fill="#fbfcfe" stroke="#c2ccd8"/>
+  <text x="646" y="172" font-family="Segoe UI, Arial" font-size="20" font-weight="700">Currency and Amount</text>
+  <text x="646" y="220" font-family="Segoe UI, Arial" font-size="22">Currency: USD</text>
+  <text x="646" y="266" font-family="Segoe UI, Arial" font-size="30" font-weight="700" fill="#9b2f2f">Amount: USD 15,200.00</text>
+  <rect x="70" y="330" width="1028" height="230" fill="#fbfcfe" stroke="#c2ccd8"/>
+  <text x="88" y="364" font-family="Segoe UI, Arial" font-size="20" font-weight="700">Beneficiary Information</text>
+  <text x="88" y="404" font-family="Segoe UI, Arial" font-size="18">Beneficiary: Global Supplier Limited</text>
+  <text x="88" y="440" font-family="Segoe UI, Arial" font-size="18">Beneficiary Account: 987654321000</text>
+  <text x="88" y="476" font-family="Segoe UI, Arial" font-size="18">Beneficiary Bank: ABC Bank Hong Kong</text>
+  <text x="88" y="512" font-family="Segoe UI, Arial" font-size="18">Bank Address: 8 Finance Street, Central, Hong Kong</text>
+  <text x="690" y="476" font-family="Segoe UI, Arial" font-size="18">SWIFT: ABCHKHHX</text>
+  <rect x="70" y="590" width="500" height="80" fill="#fbfcfe" stroke="#c2ccd8"/>
+  <text x="88" y="626" font-family="Segoe UI, Arial" font-size="18">Details: Invoice payment INV-2026-1188</text>
+  <text x="88" y="656" font-family="Segoe UI, Arial" font-size="18">Charges: SHA</text>
+  <text x="770" y="652" font-family="Segoe UI, Arial" font-size="18">Applicant Signature: Synthetic Demo</text>
+</svg>

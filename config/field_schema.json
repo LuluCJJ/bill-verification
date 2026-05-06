@@ -1,0 +1,128 @@
+{
+  "payer_name": {
+    "display_name": "付款方名称",
+    "risk_level": "high",
+    "compare_type": "normalized_text",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "payer_account": {
+    "display_name": "付款方账号",
+    "risk_level": "high",
+    "compare_type": "account",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "payer_bank": {
+    "display_name": "付款方银行",
+    "risk_level": "high",
+    "compare_type": "bank_name",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "payer_bank_code": {
+    "display_name": "付款方银行代码",
+    "risk_level": "medium",
+    "compare_type": "normalized_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "beneficiary_name": {
+    "display_name": "收款方名称",
+    "risk_level": "high",
+    "compare_type": "normalized_text",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "beneficiary_account": {
+    "display_name": "收款方账号",
+    "risk_level": "high",
+    "compare_type": "account",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "beneficiary_bank": {
+    "display_name": "收款方银行",
+    "risk_level": "high",
+    "compare_type": "bank_name",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "beneficiary_bank_address": {
+    "display_name": "收款方银行地址",
+    "risk_level": "medium",
+    "compare_type": "normalized_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "swift_code": {
+    "display_name": "SWIFT/BIC",
+    "risk_level": "high",
+    "compare_type": "normalized_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "iban": {
+    "display_name": "IBAN",
+    "risk_level": "high",
+    "compare_type": "account",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "intermediary_bank": {
+    "display_name": "中间行",
+    "risk_level": "medium",
+    "compare_type": "bank_name",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "currency": {
+    "display_name": "币种",
+    "risk_level": "high",
+    "compare_type": "currency",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "amount": {
+    "display_name": "金额",
+    "risk_level": "high",
+    "compare_type": "amount",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "amount_in_words": {
+    "display_name": "大写金额",
+    "risk_level": "medium",
+    "compare_type": "normalized_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "payment_date": {
+    "display_name": "付款日期",
+    "risk_level": "medium",
+    "compare_type": "date",
+    "required_in_system": true,
+    "document_presence": "optional"
+  },
+  "purpose": {
+    "display_name": "付款用途",
+    "risk_level": "medium",
+    "compare_type": "contains_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "charge_bearer": {
+    "display_name": "费用承担",
+    "risk_level": "low",
+    "compare_type": "normalized_text",
+    "required_in_system": false,
+    "document_presence": "optional"
+  },
+  "non_transferable": {
+    "display_name": "不可转让/限定入账",
+    "risk_level": "low",
+    "compare_type": "special_presence",
+    "required_in_system": false,
+    "document_presence": "special_risk"
+  }
+}

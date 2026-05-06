@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cn_check_pass",
+    "name": "国内支票：整体一致",
+    "document_type": "check",
+    "country": "CN",
+    "template_id": "cn_check_standard",
+    "image_path": "/samples/documents/cn_check_pass.svg",
+    "payment_instruction_path": "data/payment_instructions/cn_check_pass.json",
+    "expected_result_path": "data/expected_results/cn_check_pass.json"
+  },
+  {
+    "id": "global_tt_amount_mismatch",
+    "name": "跨境电汇申请：金额不一致",
+    "document_type": "telegraphic_transfer",
+    "country": "GLOBAL",
+    "template_id": "global_tt_standard",
+    "image_path": "/samples/documents/global_tt_amount_mismatch.svg",
+    "payment_instruction_path": "data/payment_instructions/global_tt_amount_mismatch.json",
+    "expected_result_path": "data/expected_results/global_tt_amount_mismatch.json"
+  },
+  {
+    "id": "global_tt_account_mismatch",
+    "name": "跨境电汇申请：收款账号不一致",
+    "document_type": "telegraphic_transfer",
+    "country": "GLOBAL",
+    "template_id": "global_tt_standard",
+    "image_path": "/samples/documents/global_tt_account_mismatch.svg",
+    "payment_instruction_path": "data/payment_instructions/global_tt_account_mismatch.json",
+    "expected_result_path": "data/expected_results/global_tt_account_mismatch.json"
+  }
+]

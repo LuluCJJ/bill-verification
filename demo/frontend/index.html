@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bill Verification Demo</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>权签票据一致性 AI 预审</h1>
+        <p>系统指令、票面识别、规则比对、配置管理和反馈闭环 Demo</p>
+      </div>
+      <div id="health" class="pill">checking</div>
+    </header>
+
+    <main class="shell">
+      <aside class="sidebar">
+        <h2>样例任务</h2>
+        <div id="sampleList" class="sample-list"></div>
+
+        <h2>配置管理</h2>
+        <div class="config-tabs">
+          <button data-config="field_schema.json">字段 Schema</button>
+          <button data-config="field_aliases.json">字段别名</button>
+          <button data-config="mapping_rules.json">映射规则</button>
+        </div>
+        <textarea id="configEditor" spellcheck="false"></textarea>
+        <button id="saveConfig" class="primary">保存配置</button>
+      </aside>
+
+      <section class="document-panel">
+        <div class="panel-head">
+          <h2 id="sampleTitle">请选择样例</h2>
+          <button id="runVerify" class="primary">运行核验</button>
+        </div>
+        <iframe id="documentFrame" title="票据预览"></iframe>
+      </section>
+
+      <section class="result-panel">
+        <div class="summary" id="summary"></div>
+        <div class="split">
+          <div>
+            <h2>系统支付指令</h2>
+            <pre id="paymentJson"></pre>
+          </div>
+          <div>
+            <h2>风险结果</h2>
+            <div id="results"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
