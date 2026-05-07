@@ -36,7 +36,7 @@
     "country": "CN",
     "template_id": "cn_check_standard",
     "demo_flow": "alias_feedback",
-    "image_path": "/samples/documents/alias_feedback_case.svg",
+    "image_path": "/samples/documents/alias_feedback_case.png",
     "payment_instruction_path": "data/payment_instructions/alias_feedback_case.json",
     "expected_result_path": "data/expected_results/alias_feedback_case.json"
   }

@@ -170,20 +170,14 @@ async function startPreAudit() {
   qs("aiStatus").textContent = "AI 提取中";
   clearResults();
   await saveModelSettings(false);
-  let extraction = null;
-  if (selectedSample?.demo_flow === "alias_feedback") {
-    extraction = selectedSample.expected_result;
-    qs("aiStatus").textContent = "演示：首次提取漏识别";
-  } else {
-    const image = await currentImagePayload();
-    ensureModelImageType(image.mimeType);
-    extraction = await api("/api/extract-with-model", {
-      method: "POST",
-      body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
-    });
-  }
+  const image = await currentImagePayload();
+  ensureModelImageType(image.mimeType);
+  const extraction = await api("/api/extract-with-model", {
+    method: "POST",
+    body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
+  });
   lastExtraction = extraction;
-  renderExtraction(extraction, selectedSample?.demo_flow === "alias_feedback" ? "演示首次 AI 提取结果" : "真实模型提取结果");
+  renderExtraction(extraction, "真实模型提取结果");
   qs("aiStatus").textContent = "规则核验中";
   await runCustomVerify();
   qs("aiStatus").textContent = "预审完成";
@@ -302,17 +296,15 @@ function renderItem(sampleId, item) {
 async function handleFeedbackAction(sampleId, item, button) {
   const action = button.dataset.action;
   if (sampleId === "alias_feedback_case" && item.field === "beneficiary_bank" && action === "submit_optimization") {
-    button.textContent = "应用中...";
-    const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
+    button.textContent = "应用别名并重新提取...";
+    await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
     fieldAliases = await api("/api/config/field_aliases.json");
     mappingRules = await api("/api/config/mapping_rules.json");
-    lastExtraction = data.extraction;
-    renderExtraction(data.extraction, "反馈优化后提取结果");
-    renderResult(data.verification);
     renderTemplateList();
     await renderFeedbackList();
-    renderVerifyDemoGuide("已将“入账行”加入收款方银行别名，重新核验后该风险项已变为一致。");
-    qs("aiStatus").textContent = "反馈优化完成";
+    renderVerifyDemoGuide("已将“入账行”加入收款方银行别名。系统将再次调用真实模型提取并重新核验。");
+    await startPreAudit();
+    qs("aiStatus").textContent = "反馈优化后已重新预审";
     return;
   }
   await api("/api/feedback", { method: "POST", body: JSON.stringify({ sample_id: sampleId, field: item.field, action }) });
@@ -335,25 +327,26 @@ function renderVerifyDemoGuide(message = "") {
   }
   const riskItem = lastVerification?.items?.find((item) => item.field === "beneficiary_bank");
   const done = riskItem?.status === "match";
+  const hasRisk = riskItem && riskItem.status !== "match";
   box.classList.remove("hidden");
   box.innerHTML = `
     <div>
       <h2>当前用例：别名漏识别到反馈优化</h2>
-      <p class="hint">票面写的是“入账行”，业务含义是收款方银行。初始别名清单没有这个叫法，所以第一次核验会提示收款方银行未识别。</p>
+      <p class="hint">票面写的是“入账行”，业务含义是收款方银行。请先点击“开始 AI 预审”走真实模型；如模型未映射到收款方银行，可在风险卡片点击“提交优化”。</p>
       ${message ? `<p class="demo-message">${escapeHtml(message)}</p>` : ""}
     </div>
     <div class="demo-steps">
       <span class="${lastVerification ? "done" : "active"}">1. 开始 AI 预审</span>
-      <span class="${riskItem && !done ? "active" : done ? "done" : ""}">2. 发现漏识别风险</span>
-      <span class="${done ? "done" : ""}">3. 点击“提交优化”应用别名</span>
+      <span class="${hasRisk ? "active" : done ? "done" : ""}">2. 发现漏识别风险</span>
+      <span class="${done ? "done" : ""}">3. 点击“提交优化”后再次真实提取</span>
     </div>
     <div class="panel-actions">
       <button id="resetVerifyAliasCase">重置用例</button>
-      <button id="applyVerifyAliasCase" class="primary">直接应用反馈别名</button>
+      ${hasRisk ? `<button id="applyVerifyAliasCase" class="primary">应用别名并重新预审</button>` : ""}
     </div>
   `;
   qs("resetVerifyAliasCase").onclick = () => resetAliasCaseFromVerify().catch((err) => alert(friendlyError(err)));
-  qs("applyVerifyAliasCase").onclick = () => applyAliasCaseFromVerify().catch((err) => alert(friendlyError(err)));
+  if (qs("applyVerifyAliasCase")) qs("applyVerifyAliasCase").onclick = () => applyAliasCaseFromVerify().catch((err) => alert(friendlyError(err)));
 }
 
 async function resetAliasCaseFromVerify() {
@@ -373,16 +366,14 @@ async function resetAliasCaseFromVerify() {
 }
 
 async function applyAliasCaseFromVerify() {
-  const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
+  await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
   fieldAliases = await api("/api/config/field_aliases.json");
   mappingRules = await api("/api/config/mapping_rules.json");
-  lastExtraction = data.extraction;
-  renderExtraction(data.extraction, "反馈优化后提取结果");
-  renderResult(data.verification);
   renderTemplateList();
   await renderFeedbackList();
-  qs("aiStatus").textContent = "反馈优化完成";
-  renderVerifyDemoGuide("已应用别名并重新核验。");
+  renderVerifyDemoGuide("已应用别名，正在再次调用真实模型。");
+  await startPreAudit();
+  qs("aiStatus").textContent = "反馈优化后已重新预审";
 }
 
 function renderTemplateList() {
