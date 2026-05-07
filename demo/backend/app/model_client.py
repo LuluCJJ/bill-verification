@@ -46,29 +46,24 @@ class ModelClient:
         }
         return await self._post_chat_httpx(payload)
 
-    async def chat_image(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
+    async def chat_image(self, prompt: str, image_base64: str, mime_type: str = "image/png", image_style: str = "image_url_object") -> dict[str, Any]:
         if not self.configured:
             raise RuntimeError("LLM_BASE_URL and LLM_API_KEY are required for model calls.")
-        data_url = f"data:{mime_type};base64,{image_base64}"
-        payload = {
-            "model": self.model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": data_url}},
-                    ],
-                }
-            ],
-            "temperature": 0.1,
-        }
+        payload = self._build_image_payload(prompt, image_base64, mime_type, image_style)
         return await self._post_chat(payload)
 
-    async def chat_image_httpx(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
+    async def chat_image_httpx(self, prompt: str, image_base64: str, mime_type: str = "image/png", image_style: str = "image_url_object") -> dict[str, Any]:
         if not self.configured:
             raise RuntimeError("LLM_BASE_URL and LLM_API_KEY are required for model calls.")
+        payload = self._build_image_payload(prompt, image_base64, mime_type, image_style)
+        return await self._post_chat_httpx(payload)
+
+    def _build_image_payload(self, prompt: str, image_base64: str, mime_type: str, image_style: str) -> dict[str, Any]:
         data_url = f"data:{mime_type};base64,{image_base64}"
+        if image_style == "image_url_string":
+            image_part: Any = {"type": "image_url", "image_url": data_url}
+        else:
+            image_part = {"type": "image_url", "image_url": {"url": data_url}}
         payload = {
             "model": self.model,
             "messages": [
@@ -76,16 +71,24 @@ class ModelClient:
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": data_url}},
+                        image_part,
                     ],
                 }
             ],
             "temperature": 0.1,
         }
-        return await self._post_chat_httpx(payload)
+        return payload
 
     async def _post_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return await asyncio.to_thread(self._post_chat_requests, payload)
+        last_error = ""
+        for attempt in range(1, 3):
+            try:
+                return await asyncio.to_thread(self._post_chat_requests, payload)
+            except Exception as exc:
+                last_error = str(exc)
+                if attempt < 2:
+                    await asyncio.sleep(1)
+        raise RuntimeError(last_error)
 
     async def _post_chat_httpx(self, payload: dict[str, Any]) -> dict[str, Any]:
         endpoint = f"{self.base_url}/chat/completions"

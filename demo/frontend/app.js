@@ -546,6 +546,8 @@ function formatDiagnosis(result, note = "") {
     if (step.model) lines.push(`   model: ${step.model}`);
     if (step.attempts) lines.push(`   attempts: ${step.attempts}`);
     if (step.api_key_set !== undefined) lines.push(`   api_key_set: ${step.api_key_set}`);
+    if (step.image_bytes !== undefined) lines.push(`   image_bytes: ${step.image_bytes}`);
+    if (step.image_style) lines.push(`   image_style: ${step.image_style}`);
     if (step.mime_type) lines.push(`   mime_type: ${step.mime_type}`);
     if (step.response_preview) lines.push(`   response: ${step.response_preview}`);
   });

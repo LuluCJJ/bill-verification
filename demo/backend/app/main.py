@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import binascii
 from datetime import datetime
 from pathlib import Path
 
@@ -142,6 +144,13 @@ def _model_step(name: str, ok: bool, message: str, **extra) -> dict:
     return {"name": name, "ok": ok, "message": message, **extra}
 
 
+def _image_size(image_base64: str) -> int:
+    try:
+        return len(base64.b64decode(image_base64, validate=True))
+    except (binascii.Error, ValueError):
+        return -1
+
+
 async def _with_retry(action, attempts: int = 2) -> tuple[bool, dict | str, int]:
     last_error = ""
     for attempt in range(1, attempts + 1):
@@ -205,18 +214,70 @@ async def diagnose_model(payload: ModelDiagnoseRequest) -> dict:
             report["steps"].append(_model_step("图片模型调用", False, "未提供图片，无法诊断多模态链路。"))
             report["summary"] = "图片诊断缺少图片"
             return report
-        image_ok, image_result, image_attempts = await _with_retry(lambda: client.chat_image(
-                "请用一句话说明你看到了这张付款文件图片，并识别一个关键字段。",
-                payload.image_base64,
-                payload.mime_type,
-            ))
+        image_bytes = _image_size(payload.image_base64)
+        image_prompt = "请用一句话说明你看到了这张付款文件图片，并识别一个关键字段。"
+        image_ok, image_result, image_attempts = await _with_retry(
+            lambda: client.chat_image(image_prompt, payload.image_base64, payload.mime_type, "image_url_object")
+        )
         if image_ok:
             content = image_result.get("choices", [{}])[0].get("message", {}).get("content", "")
-            report["steps"].append(_model_step("图片模型调用", True, "图片请求成功。", attempts=image_attempts, mime_type=payload.mime_type, response_preview=content[:300]))
+            report["steps"].append(
+                _model_step(
+                    "图片模型调用",
+                    True,
+                    "正式图片链路使用 requests + image_url_object，请求成功。",
+                    attempts=image_attempts,
+                    image_bytes=image_bytes,
+                    image_style="image_url_object",
+                    mime_type=payload.mime_type,
+                    response_preview=content[:300],
+                )
+            )
         else:
             report["summary"] = "图片模型调用失败"
-            report["steps"].append(_model_step("图片模型调用", False, image_result, attempts=image_attempts, mime_type=payload.mime_type))
+            report["steps"].append(
+                _model_step(
+                    "图片模型调用",
+                    False,
+                    image_result,
+                    attempts=image_attempts,
+                    image_bytes=image_bytes,
+                    image_style="image_url_object",
+                    mime_type=payload.mime_type,
+                )
+            )
             return report
+
+        string_ok, string_result, string_attempts = await _with_retry(
+            lambda: client.chat_image(image_prompt, payload.image_base64, payload.mime_type, "image_url_string"),
+            attempts=1,
+        )
+        if string_ok:
+            content = string_result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            report["steps"].append(
+                _model_step(
+                    "图片格式对照",
+                    True,
+                    "image_url_string 兼容格式也请求成功。",
+                    attempts=string_attempts,
+                    image_bytes=image_bytes,
+                    image_style="image_url_string",
+                    mime_type=payload.mime_type,
+                    response_preview=content[:300],
+                )
+            )
+        else:
+            report["steps"].append(
+                _model_step(
+                    "图片格式对照",
+                    False,
+                    string_result,
+                    attempts=string_attempts,
+                    image_bytes=image_bytes,
+                    image_style="image_url_string",
+                    mime_type=payload.mime_type,
+                )
+            )
     else:
         report["steps"].append(_model_step("图片模型调用", True, "本次未执行图片诊断。勾选图片诊断或点击测试图片可验证多模态链路。", skipped=True))
 

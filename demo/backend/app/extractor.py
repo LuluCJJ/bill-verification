@@ -133,7 +133,10 @@ async def extract_with_model(image_base64: str, mime_type: str = "image/png") ->
     client = ModelClient(load_local_config().get("model_settings", {}))
     payload = await client.chat_image(build_extraction_prompt(), image_base64, mime_type)
     parsed = parse_model_json(payload)
-    return ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload))
+    extraction = ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload))
+    if not extraction.extracted_fields:
+        raise ValueError("Model returned zero extracted fields. 图片已成功送达模型，但模型没有按结构化要求返回字段，请重试或检查模型输出。")
+    return extraction
 
 
 def extraction_from_static(expected_result: dict[str, Any]) -> ExtractionResult:

@@ -110,6 +110,8 @@ test_model_api.py -> OpenAI-compatible 模型接口
 - **文本模型调用成功，但 httpx 对照调用失败**：配置和模型权限没问题，差异集中在 HTTP 客户端/代理/TLS/连接处理。正式链路已经切到 requests。
 - **文本模型调用失败**：后端进程内 requests 调用失败。若外部 `test_model_api.py` 成功，优先检查网页保存的配置、后端启动环境、代理/证书、Python 解释器和工作目录。
 - **图片模型调用失败**：文本链路可用，但多模态图片链路失败。常见原因是模型不支持图片、图片格式不被支持、base64 image_url 协议不兼容，或图片过大/格式异常。
+- **图片模型调用成功**：页面已经用正式 `requests + image_url_object` 链路完成图片请求。诊断会展示 `image_bytes`、`mime_type` 和 `image_style`，可以和专项脚本输出对比。
+- **图片格式对照成功**：`image_url_string` 兼容格式也可用。当前正式链路仍使用标准 `image_url_object`，因为公司内专项脚本已经验证该格式可用。
 - **偶发 ConnectError**：如果重试后成功，说明配置本身大概率没问题，更像公司网络、代理或模型网关的瞬时连接问题。
 
 ## 脚本侧图片测试
