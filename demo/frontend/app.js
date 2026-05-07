@@ -79,7 +79,17 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  if (!response.ok) throw new Error(await response.text());
+  if (!response.ok) {
+    const text = await response.text();
+    let message = text;
+    try {
+      const payload = JSON.parse(text);
+      message = payload.detail || text;
+    } catch {
+      message = text;
+    }
+    throw new Error(message);
+  }
   return response.json();
 }
 
@@ -431,6 +441,28 @@ async function testImageModel() {
   qs("modelTestResult").textContent = JSON.stringify(simplifyModelResult(result), null, 2);
 }
 
+async function diagnoseModel() {
+  qs("modelTestResult").textContent = "诊断中：正在保存配置并检查文本/图片链路...";
+  await saveModelSettings(false);
+  let image = null;
+  try {
+    image = await currentImagePayload();
+    ensureModelImageType(image.mimeType);
+  } catch (err) {
+    const result = await api("/api/model/diagnose", {
+      method: "POST",
+      body: JSON.stringify({ include_image: false }),
+    });
+    qs("modelTestResult").textContent = formatDiagnosis(result, `图片诊断未执行：${err.message}`);
+    return;
+  }
+  const result = await api("/api/model/diagnose", {
+    method: "POST",
+    body: JSON.stringify({ include_image: true, image_base64: image.base64, mime_type: image.mimeType }),
+  });
+  qs("modelTestResult").textContent = formatDiagnosis(result);
+}
+
 function previewUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -503,6 +535,23 @@ function simplifyModelResult(result) {
   return message ? { content: message } : result;
 }
 
+function formatDiagnosis(result, note = "") {
+  const lines = [`诊断结论：${result.summary || "-"}`];
+  if (note) lines.push(`补充说明：${note}`);
+  (result.steps || []).forEach((step, index) => {
+    lines.push("");
+    lines.push(`${index + 1}. ${step.ok ? "通过" : "失败"} - ${step.name}`);
+    lines.push(`   ${step.message}`);
+    if (step.endpoint) lines.push(`   endpoint: ${step.endpoint}`);
+    if (step.model) lines.push(`   model: ${step.model}`);
+    if (step.attempts) lines.push(`   attempts: ${step.attempts}`);
+    if (step.api_key_set !== undefined) lines.push(`   api_key_set: ${step.api_key_set}`);
+    if (step.mime_type) lines.push(`   mime_type: ${step.mime_type}`);
+    if (step.response_preview) lines.push(`   response: ${step.response_preview}`);
+  });
+  return lines.join("\n");
+}
+
 function friendlyError(err) {
   const message = String(err?.message || err);
   if (message.includes("LLM_BASE_URL") || message.includes("LLM_API_KEY")) return "模型调用失败：接口地址或 API Key 没有保存成功。请填写 API Key 后点击“保存模型配置”。";
@@ -566,6 +615,7 @@ qs("saveBusinessConfig").onclick = saveBusinessConfig;
 qs("saveAiTuning").onclick = saveAiTuning;
 qs("refreshFeedback").onclick = renderFeedbackList;
 qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
+qs("diagnoseModel").onclick = () => diagnoseModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testImageModel").onclick = () => testImageModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("documentUpload").onchange = previewUpload;

@@ -32,10 +32,7 @@ class ModelClient:
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
         }
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
-            self._raise_for_status(response)
-            return response.json()
+        return await self._post_chat(payload)
 
     async def chat_image(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
         if not self.configured:
@@ -54,10 +51,19 @@ class ModelClient:
             ],
             "temperature": 0.1,
         }
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(f"{self.base_url}/chat/completions", headers=self._headers(), json=payload)
-            self._raise_for_status(response)
-            return response.json()
+        return await self._post_chat(payload)
+
+    async def _post_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+        endpoint = f"{self.base_url}/chat/completions"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout, trust_env=True) as client:
+                response = await client.post(endpoint, headers=self._headers(), json=payload)
+                self._raise_for_status(response)
+                return response.json()
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(f"Model API timeout after {self.timeout}s: {endpoint}") from exc
+        except httpx.RequestError as exc:
+            raise RuntimeError(f"Model API network error: {exc.__class__.__name__}: {exc}") from exc
 
     def _raise_for_status(self, response: httpx.Response) -> None:
         try:

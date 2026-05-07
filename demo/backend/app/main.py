@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from .comparator import verify
 from .extractor import extract_with_model, extraction_from_static
 from .model_client import ModelClient
-from .schemas import CustomVerificationRequest, FeedbackRequest, ModelImageTestRequest, ModelSettings, ModelTestRequest, ModelTextTestRequest
+from .schemas import CustomVerificationRequest, FeedbackRequest, ModelDiagnoseRequest, ModelImageTestRequest, ModelSettings, ModelTestRequest, ModelTextTestRequest
 from .storage import ROOT, ensure_runtime_dirs, load_config, load_local_config, load_sample, load_samples, save_config, save_feedback, save_local_config
 
 
@@ -135,6 +136,78 @@ async def test_saved_model(payload: ModelTestRequest):
         return await client.chat_text(payload.prompt)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _model_step(name: str, ok: bool, message: str, **extra) -> dict:
+    return {"name": name, "ok": ok, "message": message, **extra}
+
+
+async def _with_retry(action, attempts: int = 2) -> tuple[bool, dict | str, int]:
+    last_error = ""
+    for attempt in range(1, attempts + 1):
+        try:
+            return True, await action(), attempt
+        except Exception as exc:
+            last_error = str(exc)
+            if attempt < attempts:
+                await asyncio.sleep(1)
+    return False, last_error, attempts
+
+
+@app.post("/api/model/diagnose")
+async def diagnose_model(payload: ModelDiagnoseRequest) -> dict:
+    settings = load_local_config().get("model_settings", {})
+    client = ModelClient(settings)
+    report = {
+        "summary": "诊断完成",
+        "steps": [
+            _model_step("本地后端", True, "FastAPI 服务可访问。"),
+            _model_step(
+                "模型配置",
+                client.configured,
+                "已读取模型配置。" if client.configured else "缺少接口地址或 API Key，请先在系统设置保存模型配置。",
+                base_url=client.base_url,
+                model=client.model,
+                timeout=client.timeout,
+                api_key_set=bool(client.api_key),
+                endpoint=f"{client.base_url}/chat/completions" if client.base_url else "",
+            ),
+        ],
+    }
+    if not client.configured:
+        report["summary"] = "配置未完成"
+        return report
+
+    text_ok, text_result, text_attempts = await _with_retry(lambda: client.chat_text("请用一句话回复：模型文本链路诊断成功。"))
+    if text_ok:
+        content = text_result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        report["steps"].append(_model_step("文本模型调用", True, "文本请求成功。", attempts=text_attempts, response_preview=content[:200]))
+    else:
+        report["summary"] = "文本模型调用失败"
+        report["steps"].append(_model_step("文本模型调用", False, text_result, attempts=text_attempts))
+        return report
+
+    if payload.include_image:
+        if not payload.image_base64:
+            report["steps"].append(_model_step("图片模型调用", False, "未提供图片，无法诊断多模态链路。"))
+            report["summary"] = "图片诊断缺少图片"
+            return report
+        image_ok, image_result, image_attempts = await _with_retry(lambda: client.chat_image(
+                "请用一句话说明你看到了这张付款文件图片，并识别一个关键字段。",
+                payload.image_base64,
+                payload.mime_type,
+            ))
+        if image_ok:
+            content = image_result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            report["steps"].append(_model_step("图片模型调用", True, "图片请求成功。", attempts=image_attempts, mime_type=payload.mime_type, response_preview=content[:300]))
+        else:
+            report["summary"] = "图片模型调用失败"
+            report["steps"].append(_model_step("图片模型调用", False, image_result, attempts=image_attempts, mime_type=payload.mime_type))
+            return report
+    else:
+        report["steps"].append(_model_step("图片模型调用", True, "本次未执行图片诊断。勾选图片诊断或点击测试图片可验证多模态链路。", skipped=True))
+
+    return report
 
 
 @app.post("/api/extract-with-model")

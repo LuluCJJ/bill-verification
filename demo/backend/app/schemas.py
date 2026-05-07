@@ -81,6 +81,12 @@ class ModelTestRequest(BaseModel):
     mime_type: str = "image/png"
 
 
+class ModelDiagnoseRequest(BaseModel):
+    include_image: bool = False
+    image_base64: str | None = None
+    mime_type: str = "image/png"
+
+
 class FeedbackRequest(BaseModel):
     sample_id: str
     field: str
