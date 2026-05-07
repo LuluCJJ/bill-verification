@@ -12,7 +12,7 @@ from .comparator import verify
 from .extractor import extract_with_model, extraction_from_static
 from .model_client import ModelClient
 from .schemas import CustomVerificationRequest, FeedbackRequest, ModelDiagnoseRequest, ModelImageTestRequest, ModelSettings, ModelTestRequest, ModelTextTestRequest
-from .storage import ROOT, ensure_runtime_dirs, load_config, load_local_config, load_sample, load_samples, save_config, save_feedback, save_local_config
+from .storage import ROOT, ensure_runtime_dirs, load_config, load_feedback_entries, load_local_config, load_sample, load_samples, save_config, save_feedback, save_local_config
 
 
 app = FastAPI(title="Bill Verification Demo", version="0.1.0")
@@ -82,6 +82,112 @@ def put_config(name: str, payload: dict):
 def feedback(payload: FeedbackRequest):
     path = save_feedback(payload.model_dump())
     return {"status": "saved", "path": str(path.relative_to(ROOT))}
+
+
+@app.get("/api/feedback")
+def list_feedback() -> dict:
+    return {"entries": load_feedback_entries()}
+
+
+ALIAS_DEMO_TEXT = """- 收款人：上海星河供应链有限公司
+- 金额：128,500.00
+- 币种：人民币
+- 收款账号：6222009988776655
+- 付款人：华南贸易有限公司
+- 付款人账号：1020304050607080
+- 入账行：中国工商银行上海分行
+- 用途：货款
+- 出票日期：2026年05月06日
+- 备注：不可转让"""
+
+
+def _alias_case_parse() -> dict:
+    from .extractor import parse_plain_text_extraction
+
+    parsed = parse_plain_text_extraction(ALIAS_DEMO_TEXT)
+    extraction = extraction_from_static(
+        {
+            "sample_id": "alias_feedback_case",
+            "document_type": "check",
+            "extracted_fields": parsed["extracted_fields"],
+            "special_risks": parsed["special_risks"],
+            "raw_model_output": {"content": ALIAS_DEMO_TEXT},
+        }
+    )
+    payment_instruction = {
+        "payer_name": "华南贸易有限公司",
+        "payer_account": "1020304050607080",
+        "beneficiary_name": "上海星河供应链有限公司",
+        "beneficiary_account": "6222009988776655",
+        "beneficiary_bank": "中国工商银行上海分行",
+        "currency": "CNY",
+        "amount": "128500.00",
+        "payment_date": "2026-05-06",
+        "purpose": "货款",
+        "non_transferable": "不可转让",
+    }
+    schema = load_config("field_schema.json")
+    schema = {key: dict(value) for key, value in schema.items()}
+    schema["beneficiary_bank"]["document_presence"] = "required"
+    result = verify("alias_feedback_case", payment_instruction, extraction, schema)
+    return {
+        "raw_text": ALIAS_DEMO_TEXT,
+        "target_field": "beneficiary_bank",
+        "target_alias": "入账行",
+        "target_value": "中国工商银行上海分行",
+        "aliases": load_config("field_aliases.json").get("beneficiary_bank", []),
+        "extraction": extraction.model_dump(),
+        "verification": result.model_dump(),
+    }
+
+
+@app.get("/api/demo/alias-case")
+def alias_case() -> dict:
+    return _alias_case_parse()
+
+
+@app.post("/api/demo/alias-case/apply")
+def apply_alias_case() -> dict:
+    aliases = load_config("field_aliases.json")
+    names = aliases.setdefault("beneficiary_bank", [])
+    if "入账行" not in names:
+        names.append("入账行")
+    save_config("field_aliases.json", aliases)
+
+    rules = load_config("mapping_rules.json")
+    for rule in rules.get("template_rules", []):
+        if rule.get("template_id") == "cn_check_standard":
+            hints = rule.setdefault("hints", {})
+            hints["beneficiary_bank"] = "票面可能写作“入账行”，表示收款方开户行/收款方银行"
+    save_config("mapping_rules.json", rules)
+
+    save_feedback(
+        {
+            "sample_id": "alias_feedback_case",
+            "field": "beneficiary_bank",
+            "action": "submit_optimization",
+            "corrected_value": "中国工商银行上海分行",
+            "note": "将票面别名“入账行”加入 beneficiary_bank，用于演示反馈驱动的模板调优闭环。",
+        }
+    )
+    return _alias_case_parse()
+
+
+@app.post("/api/demo/alias-case/reset")
+def reset_alias_case() -> dict:
+    aliases = load_config("field_aliases.json")
+    names = aliases.get("beneficiary_bank", [])
+    aliases["beneficiary_bank"] = [name for name in names if name != "入账行"]
+    save_config("field_aliases.json", aliases)
+
+    rules = load_config("mapping_rules.json")
+    for rule in rules.get("template_rules", []):
+        if rule.get("template_id") == "cn_check_standard":
+            hints = rule.setdefault("hints", {})
+            if hints.get("beneficiary_bank") == "票面可能写作“入账行”，表示收款方开户行/收款方银行":
+                hints.pop("beneficiary_bank", None)
+    save_config("mapping_rules.json", rules)
+    return _alias_case_parse()
 
 
 @app.post("/api/model/test-text")

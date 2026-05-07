@@ -122,6 +122,20 @@
       <section id="feedbackTab" class="tab-page">
         <section class="business-card">
           <div class="panel-head">
+            <div>
+              <h2>别名漏识别闭环演示</h2>
+              <p class="hint">演示“票面叫法不在清单里导致字段漏识别”，通过反馈把别名加入模板后再次核验变为一致。</p>
+            </div>
+            <div class="panel-actions">
+              <button id="runAliasCase">运行演示</button>
+              <button id="applyAliasCase" class="primary">应用反馈别名</button>
+              <button id="resetAliasCase">重置演示</button>
+            </div>
+          </div>
+          <div id="aliasCase" class="alias-case"></div>
+        </section>
+        <section class="business-card">
+          <div class="panel-head">
             <h2>反馈样本池</h2>
             <button id="refreshFeedback">刷新反馈</button>
           </div>

@@ -63,6 +63,22 @@ def save_feedback(payload: dict[str, Any]) -> Path:
     return path
 
 
+def load_feedback_entries() -> list[dict[str, Any]]:
+    ensure_runtime_dirs()
+    entries: list[dict[str, Any]] = []
+    for path in sorted(FEEDBACK_DIR.glob("*.json")):
+        payload = read_json(path)
+        if isinstance(payload, list):
+            for item in payload:
+                item = dict(item)
+                item.setdefault("source_file", path.name)
+                entries.append(item)
+        elif isinstance(payload, dict):
+            payload.setdefault("source_file", path.name)
+            entries.append(payload)
+    return entries
+
+
 def load_local_config() -> dict[str, Any]:
     if not LOCAL_CONFIG_PATH.exists():
         return {}

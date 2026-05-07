@@ -104,7 +104,8 @@ async function init() {
   renderBusinessConfig();
   renderAiTuningConfig();
   await loadSamples();
-  renderFeedbackList();
+  await renderFeedbackList();
+  await renderAliasCase();
 }
 
 async function loadSamples() {
@@ -398,7 +399,94 @@ async function saveBusinessConfig() {
 async function renderFeedbackList() {
   const box = qs("feedbackList");
   box.innerHTML = "";
-  box.innerHTML = `<div class="empty-state">反馈会保存到本地 data/feedback。当前 Demo 暂展示新提交按钮状态，后续可增加后端列表接口聚合高频问题。</div>`;
+  const payload = await api("/api/feedback");
+  const entries = payload.entries || [];
+  if (!entries.length) {
+    box.innerHTML = `<div class="empty-state">暂无反馈。可先在“付款核验”结果里点击“AI识别错误/提交优化”，或运行上方别名闭环演示。</div>`;
+    return;
+  }
+  entries.slice().reverse().forEach((entry) => {
+    const card = document.createElement("div");
+    card.className = "feedback-card";
+    card.innerHTML = `
+      <div class="feedback-head">
+        <strong>${escapeHtml(entry.field || "-")}</strong>
+        <span>${feedbackActionText(entry.action)}</span>
+      </div>
+      <div class="meta">样例：${escapeHtml(entry.sample_id || "-")} · 来源：${escapeHtml(entry.source_file || "runtime")}</div>
+      ${entry.corrected_value ? `<div class="meta">修正值：${escapeHtml(entry.corrected_value)}</div>` : ""}
+      ${entry.note ? `<div class="meta">说明：${escapeHtml(entry.note)}</div>` : ""}
+    `;
+    box.appendChild(card);
+  });
+}
+
+async function renderAliasCase(payload = null) {
+  const data = payload || await api("/api/demo/alias-case");
+  const verification = data.verification || {};
+  const extraction = data.extraction || {};
+  const bankField = (extraction.extracted_fields || []).find((field) => field.normalized_field === data.target_field);
+  const bankItem = (verification.items || []).find((item) => item.field === data.target_field);
+  const hasAlias = (data.aliases || []).includes(data.target_alias);
+  qs("aliasCase").innerHTML = `
+    <div class="alias-journey">
+      <div class="alias-step ${hasAlias ? "done" : "active"}">
+        <span>1</span>
+        <strong>发现漏识别</strong>
+        <p>票面出现“${escapeHtml(data.target_alias)}”，系统需要核验收款方银行。</p>
+      </div>
+      <div class="alias-step ${hasAlias ? "done" : ""}">
+        <span>2</span>
+        <strong>反馈为别名</strong>
+        <p>把“${escapeHtml(data.target_alias)}”加入 ${escapeHtml(data.target_field)} 的模板叫法。</p>
+      </div>
+      <div class="alias-step ${bankField ? "done" : ""}">
+        <span>3</span>
+        <strong>重新映射</strong>
+        <p>${bankField ? `已识别为：${escapeHtml(bankField.raw_value)}` : "当前仍未映射到收款方银行。"}</p>
+      </div>
+    </div>
+    <div class="alias-grid">
+      <div>
+        <h3>模型原始输出片段</h3>
+        <pre class="mini-pre">${escapeHtml(data.raw_text)}</pre>
+      </div>
+      <div>
+        <h3>当前别名清单</h3>
+        <p class="alias-tags">${(data.aliases || []).map((name) => `<span>${escapeHtml(name)}</span>`).join("") || "-"}</p>
+        <h3>核验结果</h3>
+        <div class="result-card ${bankItem?.status === "match" ? "match" : "high"}">
+          <div class="result-head">
+            <strong>收款方银行</strong>
+            <span class="result-status ${bankItem?.status === "match" ? "match" : "high"}">${statusText(bankItem?.status || "missing_in_document")}</span>
+          </div>
+          <div class="compare-values">
+            <div><b>系统值</b><p>${escapeHtml(data.target_value)}</p></div>
+            <div class="${bankItem?.status === "match" ? "" : "attention-value"}"><b>票面值</b><p>${bankField ? escapeHtml(bankField.raw_value) : "-"}</p></div>
+          </div>
+          <div class="meta">${escapeHtml(bankItem?.message || "系统存在收款方银行，票面未识别到对应字段")}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function applyAliasCase() {
+  const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
+  fieldAliases = await api("/api/config/field_aliases.json");
+  mappingRules = await api("/api/config/mapping_rules.json");
+  renderTemplateList();
+  await renderFeedbackList();
+  await renderAliasCase(data);
+}
+
+async function resetAliasCase() {
+  const data = await api("/api/demo/alias-case/reset", { method: "POST", body: "{}" });
+  fieldAliases = await api("/api/config/field_aliases.json");
+  mappingRules = await api("/api/config/mapping_rules.json");
+  renderTemplateList();
+  await renderFeedbackList();
+  await renderAliasCase(data);
 }
 
 async function loadModelSettings() {
@@ -586,6 +674,16 @@ function feedbackButton(action, label) {
   return `<button data-action="${action}">${label}</button>`;
 }
 
+function feedbackActionText(action) {
+  return {
+    confirm_match: "确认一致",
+    confirm_mismatch: "确认不一致",
+    ai_error: "AI识别错误",
+    ignore: "忽略",
+    submit_optimization: "提交优化",
+  }[action] || action || "-";
+}
+
 function statusText(status) {
   return { match: "一致", mismatch: "不一致", missing_in_document: "票面缺失", document_only: "票面提示", unchecked: "未检查" }[status] || status;
 }
@@ -616,6 +714,9 @@ qs("showExtractionJson").onclick = toggleExtractionJson;
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
 qs("saveAiTuning").onclick = saveAiTuning;
 qs("refreshFeedback").onclick = renderFeedbackList;
+qs("runAliasCase").onclick = () => renderAliasCase().catch((err) => alert(friendlyError(err)));
+qs("applyAliasCase").onclick = () => applyAliasCase().catch((err) => alert(friendlyError(err)));
+qs("resetAliasCase").onclick = () => resetAliasCase().catch((err) => alert(friendlyError(err)));
 qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("diagnoseModel").onclick = () => diagnoseModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));

@@ -156,6 +156,15 @@ def map_plain_label(label: str) -> str:
     for key, field in PLAIN_LABEL_MAP.items():
         if key.lower() in clean:
             return field
+    try:
+        aliases = load_config("field_aliases.json")
+    except FileNotFoundError:
+        aliases = {}
+    for field, names in aliases.items():
+        for name in names:
+            alias = re.sub(r"\s+", " ", str(name)).strip().lower()
+            if alias and (clean == alias or alias in clean):
+                return field
     return ""
 
 
