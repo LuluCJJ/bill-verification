@@ -28,5 +28,16 @@
     "image_path": "/samples/documents/global_tt_account_mismatch.png",
     "payment_instruction_path": "data/payment_instructions/global_tt_account_mismatch.json",
     "expected_result_path": "data/expected_results/global_tt_account_mismatch.json"
+  },
+  {
+    "id": "alias_feedback_case",
+    "name": "反馈闭环：入账行别名漏识别",
+    "document_type": "check",
+    "country": "CN",
+    "template_id": "cn_check_standard",
+    "demo_flow": "alias_feedback",
+    "image_path": "/samples/documents/alias_feedback_case.svg",
+    "payment_instruction_path": "data/payment_instructions/alias_feedback_case.json",
+    "expected_result_path": "data/expected_results/alias_feedback_case.json"
   }
 ]

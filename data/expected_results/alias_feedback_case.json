@@ -1,0 +1,20 @@
+{
+  "sample_id": "alias_feedback_case",
+  "document_type": "check",
+  "extracted_fields": [
+    {"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "收款人区域"}, "mapping_source": "ai"},
+    {"normalized_field": "amount", "raw_label": "金额", "raw_value": "128,500.00", "confidence": 0.9, "evidence": {"page": 1, "text": "金额：128,500.00", "region_hint": "金额框"}, "mapping_source": "ai"},
+    {"normalized_field": "currency", "raw_label": "币种", "raw_value": "人民币", "confidence": 0.88, "evidence": {"page": 1, "text": "币种：人民币", "region_hint": "金额区域"}, "mapping_source": "ai"},
+    {"normalized_field": "beneficiary_account", "raw_label": "收款账号", "raw_value": "6222009988776655", "confidence": 0.9, "evidence": {"page": 1, "text": "收款账号：6222009988776655", "region_hint": "收款账号区域"}, "mapping_source": "ai"},
+    {"normalized_field": "payer_name", "raw_label": "付款人", "raw_value": "华南贸易有限公司", "confidence": 0.9, "evidence": {"page": 1, "text": "付款人：华南贸易有限公司", "region_hint": "付款人区域"}, "mapping_source": "ai"},
+    {"normalized_field": "payer_account", "raw_label": "付款人账号", "raw_value": "1020304050607080", "confidence": 0.9, "evidence": {"page": 1, "text": "付款人账号：1020304050607080", "region_hint": "付款账号区域"}, "mapping_source": "ai"},
+    {"normalized_field": "purpose", "raw_label": "用途", "raw_value": "货款", "confidence": 0.86, "evidence": {"page": 1, "text": "用途：货款", "region_hint": "用途区域"}, "mapping_source": "ai"},
+    {"normalized_field": "payment_date", "raw_label": "出票日期", "raw_value": "2026年05月06日", "confidence": 0.88, "evidence": {"page": 1, "text": "出票日期：2026年05月06日", "region_hint": "日期区域"}, "mapping_source": "ai"}
+  ],
+  "special_risks": [
+    {"type": "non_transferable", "text": "不可转让", "confidence": 0.85, "evidence": {"page": 1, "text": "备注：不可转让", "region_hint": "备注区域"}}
+  ],
+  "raw_model_output": {
+    "content": "- 收款人：上海星河供应链有限公司\n- 金额：128,500.00\n- 币种：人民币\n- 收款账号：6222009988776655\n- 付款人：华南贸易有限公司\n- 付款人账号：1020304050607080\n- 入账行：中国工商银行上海分行\n- 用途：货款\n- 出票日期：2026年05月06日\n- 备注：不可转让"
+  }
+}

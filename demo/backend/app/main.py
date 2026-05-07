@@ -53,14 +53,22 @@ def verify_sample(sample_id: str) -> dict:
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     extraction = extraction_from_static(sample["expected_result"])
-    result = verify(sample_id, sample["payment_instruction"], extraction, load_config("field_schema.json"))
+    result = verify(sample_id, sample["payment_instruction"], extraction, verification_schema(sample_id))
     return result.model_dump()
 
 
 @app.post("/api/verify-custom")
 def verify_custom(payload: CustomVerificationRequest) -> dict:
-    result = verify(payload.sample_id, payload.payment_instruction, payload.extraction, load_config("field_schema.json"))
+    result = verify(payload.sample_id, payload.payment_instruction, payload.extraction, verification_schema(payload.sample_id))
     return result.model_dump()
+
+
+def verification_schema(sample_id: str) -> dict:
+    schema = load_config("field_schema.json")
+    schema = {key: dict(value) for key, value in schema.items()}
+    if sample_id == "alias_feedback_case":
+        schema["beneficiary_bank"]["document_presence"] = "required"
+    return schema
 
 
 @app.get("/api/config/{name}")
@@ -126,10 +134,7 @@ def _alias_case_parse() -> dict:
         "purpose": "货款",
         "non_transferable": "不可转让",
     }
-    schema = load_config("field_schema.json")
-    schema = {key: dict(value) for key, value in schema.items()}
-    schema["beneficiary_bank"]["document_presence"] = "required"
-    result = verify("alias_feedback_case", payment_instruction, extraction, schema)
+    result = verify("alias_feedback_case", payment_instruction, extraction, verification_schema("alias_feedback_case"))
     return {
         "raw_text": ALIAS_DEMO_TEXT,
         "target_field": "beneficiary_bank",

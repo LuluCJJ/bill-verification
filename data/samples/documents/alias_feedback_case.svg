@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="560" viewBox="0 0 920 560">
+  <rect width="920" height="560" fill="#ffffff"/>
+  <rect x="28" y="28" width="864" height="504" rx="10" fill="#f8fbfd" stroke="#1f3b57" stroke-width="2"/>
+  <text x="46" y="68" font-family="Microsoft YaHei, Arial" font-size="24" font-weight="700" fill="#203040">中国工商银行 转账支票</text>
+  <text x="702" y="66" font-family="Consolas, monospace" font-size="16" fill="#566575">CN20260506088</text>
+  <line x1="46" y1="92" x2="874" y2="92" stroke="#c9d5df"/>
+  <text x="58" y="132" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">付款人：华南贸易有限公司</text>
+  <text x="520" y="132" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">付款人账号：1020304050607080</text>
+  <text x="58" y="182" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">收款人：上海星河供应链有限公司</text>
+  <text x="520" y="182" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">收款账号：6222009988776655</text>
+  <rect x="58" y="214" width="804" height="56" fill="#ffffff" stroke="#ccd5df"/>
+  <text x="78" y="249" font-family="Microsoft YaHei, Arial" font-size="18" fill="#1d2733">入账行：中国工商银行上海分行</text>
+  <rect x="58" y="300" width="360" height="70" fill="#ffffff" stroke="#ccd5df"/>
+  <text x="78" y="342" font-family="Microsoft YaHei, Arial" font-size="19" fill="#1d2733">金额：128,500.00</text>
+  <rect x="448" y="300" width="414" height="70" fill="#ffffff" stroke="#ccd5df"/>
+  <text x="468" y="342" font-family="Microsoft YaHei, Arial" font-size="19" fill="#1d2733">币种：人民币</text>
+  <text x="58" y="416" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">用途：货款</text>
+  <text x="520" y="416" font-family="Microsoft YaHei, Arial" font-size="17" fill="#1d2733">出票日期：2026年05月06日</text>
+  <text x="58" y="468" font-family="Microsoft YaHei, Arial" font-size="17" fill="#9b2f2f">备注：不可转让</text>
+  <text x="630" y="492" font-family="Microsoft YaHei, Arial" font-size="15" fill="#8995a1">演示点：入账行 = 收款方银行，但初始别名清单未配置</text>
+</svg>

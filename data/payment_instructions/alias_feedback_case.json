@@ -1,0 +1,16 @@
+{
+  "payment_id": "PAY-CN-2026-ALIAS",
+  "document_type": "check",
+  "payer_name": "华南贸易有限公司",
+  "payer_account": "1020304050607080",
+  "payer_bank": "中国工商银行深圳分行",
+  "beneficiary_name": "上海星河供应链有限公司",
+  "beneficiary_account": "6222009988776655",
+  "beneficiary_bank": "中国工商银行上海分行",
+  "currency": "CNY",
+  "amount": "128500.00",
+  "amount_in_words": "人民币壹拾贰万捌仟伍佰元整",
+  "payment_date": "2026-05-06",
+  "purpose": "货款",
+  "non_transferable": "不可转让"
+}

@@ -105,7 +105,6 @@ async function init() {
   renderAiTuningConfig();
   await loadSamples();
   await renderFeedbackList();
-  await renderAliasCase();
 }
 
 async function loadSamples() {
@@ -134,6 +133,7 @@ async function selectSample(sampleId, button) {
   fillPayment(selectedSample.payment_instruction);
   renderExtraction(selectedSample.expected_result, "预置样例结果，仅作对照");
   clearResults();
+  renderVerifyDemoGuide();
 }
 
 function renderPaymentForm(values) {
@@ -170,17 +170,24 @@ async function startPreAudit() {
   qs("aiStatus").textContent = "AI 提取中";
   clearResults();
   await saveModelSettings(false);
-  const image = await currentImagePayload();
-  ensureModelImageType(image.mimeType);
-  const extraction = await api("/api/extract-with-model", {
-    method: "POST",
-    body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
-  });
+  let extraction = null;
+  if (selectedSample?.demo_flow === "alias_feedback") {
+    extraction = selectedSample.expected_result;
+    qs("aiStatus").textContent = "演示：首次提取漏识别";
+  } else {
+    const image = await currentImagePayload();
+    ensureModelImageType(image.mimeType);
+    extraction = await api("/api/extract-with-model", {
+      method: "POST",
+      body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
+    });
+  }
   lastExtraction = extraction;
-  renderExtraction(extraction, "真实模型提取结果");
+  renderExtraction(extraction, selectedSample?.demo_flow === "alias_feedback" ? "演示首次 AI 提取结果" : "真实模型提取结果");
   qs("aiStatus").textContent = "规则核验中";
   await runCustomVerify();
   qs("aiStatus").textContent = "预审完成";
+  renderVerifyDemoGuide();
 }
 
 async function runCustomVerify() {
@@ -287,19 +294,95 @@ function renderItem(sampleId, item) {
     </div>
   `;
   div.querySelectorAll("button").forEach((button) => {
-    button.onclick = async () => {
-      await api("/api/feedback", { method: "POST", body: JSON.stringify({ sample_id: sampleId, field: item.field, action: button.dataset.action }) });
-      button.textContent = "已保存";
-      renderFeedbackList();
-    };
+    button.onclick = () => handleFeedbackAction(sampleId, item, button).catch((err) => alert(friendlyError(err)));
   });
   return div;
+}
+
+async function handleFeedbackAction(sampleId, item, button) {
+  const action = button.dataset.action;
+  if (sampleId === "alias_feedback_case" && item.field === "beneficiary_bank" && action === "submit_optimization") {
+    button.textContent = "应用中...";
+    const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
+    fieldAliases = await api("/api/config/field_aliases.json");
+    mappingRules = await api("/api/config/mapping_rules.json");
+    lastExtraction = data.extraction;
+    renderExtraction(data.extraction, "反馈优化后提取结果");
+    renderResult(data.verification);
+    renderTemplateList();
+    await renderFeedbackList();
+    renderVerifyDemoGuide("已将“入账行”加入收款方银行别名，重新核验后该风险项已变为一致。");
+    qs("aiStatus").textContent = "反馈优化完成";
+    return;
+  }
+  await api("/api/feedback", { method: "POST", body: JSON.stringify({ sample_id: sampleId, field: item.field, action }) });
+  button.textContent = "已保存";
+  await renderFeedbackList();
 }
 
 function clearResults() {
   qs("summary").innerHTML = "";
   qs("results").innerHTML = "";
   lastVerification = null;
+}
+
+function renderVerifyDemoGuide(message = "") {
+  const box = qs("verifyDemoGuide");
+  if (!selectedSample || selectedSample.demo_flow !== "alias_feedback") {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  const riskItem = lastVerification?.items?.find((item) => item.field === "beneficiary_bank");
+  const done = riskItem?.status === "match";
+  box.classList.remove("hidden");
+  box.innerHTML = `
+    <div>
+      <h2>当前用例：别名漏识别到反馈优化</h2>
+      <p class="hint">票面写的是“入账行”，业务含义是收款方银行。初始别名清单没有这个叫法，所以第一次核验会提示收款方银行未识别。</p>
+      ${message ? `<p class="demo-message">${escapeHtml(message)}</p>` : ""}
+    </div>
+    <div class="demo-steps">
+      <span class="${lastVerification ? "done" : "active"}">1. 开始 AI 预审</span>
+      <span class="${riskItem && !done ? "active" : done ? "done" : ""}">2. 发现漏识别风险</span>
+      <span class="${done ? "done" : ""}">3. 点击“提交优化”应用别名</span>
+    </div>
+    <div class="panel-actions">
+      <button id="resetVerifyAliasCase">重置用例</button>
+      <button id="applyVerifyAliasCase" class="primary">直接应用反馈别名</button>
+    </div>
+  `;
+  qs("resetVerifyAliasCase").onclick = () => resetAliasCaseFromVerify().catch((err) => alert(friendlyError(err)));
+  qs("applyVerifyAliasCase").onclick = () => applyAliasCaseFromVerify().catch((err) => alert(friendlyError(err)));
+}
+
+async function resetAliasCaseFromVerify() {
+  await api("/api/demo/alias-case/reset", { method: "POST", body: "{}" });
+  fieldAliases = await api("/api/config/field_aliases.json");
+  mappingRules = await api("/api/config/mapping_rules.json");
+  if (selectedSample?.id === "alias_feedback_case") {
+    selectedSample = await api("/api/samples/alias_feedback_case");
+    lastExtraction = selectedSample.expected_result;
+    renderExtraction(selectedSample.expected_result, "预置样例结果，仅作对照");
+    clearResults();
+    qs("aiStatus").textContent = "等待预审";
+  }
+  renderTemplateList();
+  await renderFeedbackList();
+  renderVerifyDemoGuide("已重置别名配置。现在点击“开始 AI 预审”会再次出现漏识别风险。");
+}
+
+async function applyAliasCaseFromVerify() {
+  const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
+  fieldAliases = await api("/api/config/field_aliases.json");
+  mappingRules = await api("/api/config/mapping_rules.json");
+  lastExtraction = data.extraction;
+  renderExtraction(data.extraction, "反馈优化后提取结果");
+  renderResult(data.verification);
+  renderTemplateList();
+  await renderFeedbackList();
+  qs("aiStatus").textContent = "反馈优化完成";
+  renderVerifyDemoGuide("已应用别名并重新核验。");
 }
 
 function renderTemplateList() {
@@ -419,74 +502,6 @@ async function renderFeedbackList() {
     `;
     box.appendChild(card);
   });
-}
-
-async function renderAliasCase(payload = null) {
-  const data = payload || await api("/api/demo/alias-case");
-  const verification = data.verification || {};
-  const extraction = data.extraction || {};
-  const bankField = (extraction.extracted_fields || []).find((field) => field.normalized_field === data.target_field);
-  const bankItem = (verification.items || []).find((item) => item.field === data.target_field);
-  const hasAlias = (data.aliases || []).includes(data.target_alias);
-  qs("aliasCase").innerHTML = `
-    <div class="alias-journey">
-      <div class="alias-step ${hasAlias ? "done" : "active"}">
-        <span>1</span>
-        <strong>发现漏识别</strong>
-        <p>票面出现“${escapeHtml(data.target_alias)}”，系统需要核验收款方银行。</p>
-      </div>
-      <div class="alias-step ${hasAlias ? "done" : ""}">
-        <span>2</span>
-        <strong>反馈为别名</strong>
-        <p>把“${escapeHtml(data.target_alias)}”加入 ${escapeHtml(data.target_field)} 的模板叫法。</p>
-      </div>
-      <div class="alias-step ${bankField ? "done" : ""}">
-        <span>3</span>
-        <strong>重新映射</strong>
-        <p>${bankField ? `已识别为：${escapeHtml(bankField.raw_value)}` : "当前仍未映射到收款方银行。"}</p>
-      </div>
-    </div>
-    <div class="alias-grid">
-      <div>
-        <h3>模型原始输出片段</h3>
-        <pre class="mini-pre">${escapeHtml(data.raw_text)}</pre>
-      </div>
-      <div>
-        <h3>当前别名清单</h3>
-        <p class="alias-tags">${(data.aliases || []).map((name) => `<span>${escapeHtml(name)}</span>`).join("") || "-"}</p>
-        <h3>核验结果</h3>
-        <div class="result-card ${bankItem?.status === "match" ? "match" : "high"}">
-          <div class="result-head">
-            <strong>收款方银行</strong>
-            <span class="result-status ${bankItem?.status === "match" ? "match" : "high"}">${statusText(bankItem?.status || "missing_in_document")}</span>
-          </div>
-          <div class="compare-values">
-            <div><b>系统值</b><p>${escapeHtml(data.target_value)}</p></div>
-            <div class="${bankItem?.status === "match" ? "" : "attention-value"}"><b>票面值</b><p>${bankField ? escapeHtml(bankField.raw_value) : "-"}</p></div>
-          </div>
-          <div class="meta">${escapeHtml(bankItem?.message || "系统存在收款方银行，票面未识别到对应字段")}</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-async function applyAliasCase() {
-  const data = await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
-  fieldAliases = await api("/api/config/field_aliases.json");
-  mappingRules = await api("/api/config/mapping_rules.json");
-  renderTemplateList();
-  await renderFeedbackList();
-  await renderAliasCase(data);
-}
-
-async function resetAliasCase() {
-  const data = await api("/api/demo/alias-case/reset", { method: "POST", body: "{}" });
-  fieldAliases = await api("/api/config/field_aliases.json");
-  mappingRules = await api("/api/config/mapping_rules.json");
-  renderTemplateList();
-  await renderFeedbackList();
-  await renderAliasCase(data);
 }
 
 async function loadModelSettings() {
@@ -714,9 +729,6 @@ qs("showExtractionJson").onclick = toggleExtractionJson;
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
 qs("saveAiTuning").onclick = saveAiTuning;
 qs("refreshFeedback").onclick = renderFeedbackList;
-qs("runAliasCase").onclick = () => renderAliasCase().catch((err) => alert(friendlyError(err)));
-qs("applyAliasCase").onclick = () => applyAliasCase().catch((err) => alert(friendlyError(err)));
-qs("resetAliasCase").onclick = () => resetAliasCase().catch((err) => alert(friendlyError(err)));
 qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("diagnoseModel").onclick = () => diagnoseModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("testTextModel").onclick = () => testTextModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
