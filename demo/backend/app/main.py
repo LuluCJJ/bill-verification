@@ -117,6 +117,7 @@ def _alias_case_parse() -> dict:
         {
             "sample_id": "alias_feedback_case",
             "document_type": "check",
+            "document_items": parsed.get("document_items", []),
             "extracted_fields": parsed["extracted_fields"],
             "special_risks": parsed["special_risks"],
             "raw_model_output": {"content": ALIAS_DEMO_TEXT},

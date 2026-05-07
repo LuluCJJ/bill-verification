@@ -336,6 +336,11 @@ iframe {
   border-left-color: #cf3c3c;
 }
 
+.field-chip.raw-item {
+  border-left-color: #6f7f8f;
+  background: #ffffff;
+}
+
 .field-chip-head {
   display: flex;
   justify-content: space-between;

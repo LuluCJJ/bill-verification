@@ -11,19 +11,24 @@ EXTRACTION_PROMPT = """
 你是权签票据一致性预审助手。请从票据图片中提取可见字段，并映射到给定标准字段。
 
 要求：
-1. 只提取票面可见信息，不要补全或臆测。
-2. 如果不确定，保留低置信度候选。
-3. 输出严格 JSON，不要 Markdown。
-4. 字段使用 normalized_field 表示标准字段。
-5. 每个字段保留 raw_label、raw_value、confidence、evidence。
-6. 特殊票面风险如 Not Negotiable、A/C Payee Only、不可转让，放入 special_risks。
-7. 不要用项目符号、解释文字或自然语言总结，只返回一个 JSON 对象。
+1. 只提取票面可见信息，不要补全、改写、翻译或标准化票面文字。
+2. document_items 保存票面原始 Key/Value，raw_key 和 raw_value 必须尽量逐字照抄票面。
+3. extracted_fields 保存映射结果：raw_label/raw_value 仍然照抄票面，normalized_field 才是系统字段。
+4. 如果某个票面 Key/Value 不确定映射到哪个系统字段，可以只放入 document_items，不要强行映射。
+5. 如果不确定，保留低置信度候选，并在 mapping_source 写 "ai_uncertain"。
+6. 输出严格 JSON，不要 Markdown。
+7. 特殊票面风险如 Not Negotiable、A/C Payee Only、不可转让，放入 special_risks。
+8. 不要用项目符号、解释文字或自然语言总结，只返回一个 JSON 对象。
 
 JSON 格式示例：
 {{
   "document_type": "check",
+  "document_items": [
+    {{"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}},
+    {{"raw_key": "入账行", "raw_value": "中国工商银行上海分行", "evidence": {{"page": 1, "text": "入账行：中国工商银行上海分行", "region_hint": ""}}}}
+  ],
   "extracted_fields": [
-    {{"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}}
+    {{"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "mapping_source": "ai", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}}
   ],
   "special_risks": [
     {{"type": "non_transferable", "text": "不可转让", "confidence": 0.9, "evidence": {{"page": 1, "text": "不可转让", "region_hint": ""}}}}
@@ -103,6 +108,7 @@ PLAIN_LABEL_MAP = {
 
 
 def parse_plain_text_extraction(content: str) -> dict[str, Any]:
+    document_items = []
     fields = []
     special_risks = []
     for raw_line in content.splitlines():
@@ -112,6 +118,7 @@ def parse_plain_text_extraction(content: str) -> dict[str, Any]:
         label, value = re.split(r"[:：]", line, maxsplit=1)
         label = label.strip().strip("*").strip()
         value = value.strip().strip("*").strip()
+        document_items.append({"raw_key": label, "raw_value": value, "evidence": {"page": 1, "text": line, "region_hint": ""}})
         normalized = map_plain_label(label)
         if not normalized or not value:
             continue
@@ -146,7 +153,7 @@ def parse_plain_text_extraction(content: str) -> dict[str, Any]:
                     "evidence": {"page": 1, "text": line, "region_hint": ""},
                 }
             )
-    return {"document_type": "unknown", "extracted_fields": fields, "special_risks": special_risks}
+    return {"document_type": "unknown", "document_items": document_items, "extracted_fields": fields, "special_risks": special_risks}
 
 
 def map_plain_label(label: str) -> str:
@@ -174,7 +181,8 @@ def is_special_risk(value: str) -> bool:
 
 
 def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any]) -> dict[str, Any]:
-    fields = parsed.get("extracted_fields") or parsed.get("fields") or []
+    fields = parsed.get("extracted_fields") or parsed.get("mapped_fields") or parsed.get("fields") or []
+    document_items = normalize_document_items(parsed, fields)
     normalized_fields = []
     for field in fields:
         if not isinstance(field, dict):
@@ -220,10 +228,56 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
     return {
         "sample_id": parsed.get("sample_id"),
         "document_type": parsed.get("document_type", "unknown"),
+        "document_items": document_items,
         "extracted_fields": normalized_fields,
         "special_risks": special_risks,
         "raw_model_output": raw_payload,
     }
+
+
+def normalize_document_items(parsed: dict[str, Any], fields: list[Any]) -> list[dict[str, Any]]:
+    raw_items = parsed.get("document_items") or parsed.get("raw_items") or []
+    items = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        evidence = item.get("evidence") or {}
+        if isinstance(evidence, str):
+            evidence = {"page": 1, "text": evidence, "region_hint": ""}
+        items.append(
+            {
+                "raw_key": item.get("raw_key", item.get("key", item.get("label", ""))),
+                "raw_value": item.get("raw_value", item.get("value", "")),
+                "evidence": {
+                    "page": evidence.get("page", 1),
+                    "text": evidence.get("text", ""),
+                    "region_hint": evidence.get("region_hint", evidence.get("region", "")),
+                },
+            }
+        )
+    if items:
+        return items
+    for field in fields:
+        if not isinstance(field, dict):
+            continue
+        label = field.get("raw_label", field.get("raw_key", ""))
+        value = field.get("raw_value", field.get("value", ""))
+        evidence = field.get("evidence") or {}
+        if isinstance(evidence, str):
+            evidence = {"page": 1, "text": evidence, "region_hint": ""}
+        if label or value:
+            items.append(
+                {
+                    "raw_key": label,
+                    "raw_value": value,
+                    "evidence": {
+                        "page": evidence.get("page", 1),
+                        "text": evidence.get("text", ""),
+                        "region_hint": evidence.get("region_hint", evidence.get("region", "")),
+                    },
+                }
+            )
+    return items
 
 
 def normalize_confidence(value: Any) -> float:

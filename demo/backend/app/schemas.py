@@ -29,9 +29,16 @@ class SpecialRisk(BaseModel):
     evidence: Evidence = Field(default_factory=Evidence)
 
 
+class DocumentItem(BaseModel):
+    raw_key: str = ""
+    raw_value: str = ""
+    evidence: Evidence = Field(default_factory=Evidence)
+
+
 class ExtractionResult(BaseModel):
     sample_id: str | None = None
     document_type: str = "unknown"
+    document_items: list[DocumentItem] = Field(default_factory=list)
     extracted_fields: list[ExtractedField] = Field(default_factory=list)
     special_risks: list[SpecialRisk] = Field(default_factory=list)
     raw_model_output: Any | None = None

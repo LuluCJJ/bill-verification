@@ -1,6 +1,18 @@
 {
   "sample_id": "alias_feedback_case",
   "document_type": "check",
+  "document_items": [
+    {"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "收款人区域"}},
+    {"raw_key": "金额", "raw_value": "128,500.00", "evidence": {"page": 1, "text": "金额：128,500.00", "region_hint": "金额框"}},
+    {"raw_key": "币种", "raw_value": "人民币", "evidence": {"page": 1, "text": "币种：人民币", "region_hint": "金额区域"}},
+    {"raw_key": "收款账号", "raw_value": "6222009988776655", "evidence": {"page": 1, "text": "收款账号：6222009988776655", "region_hint": "收款账号区域"}},
+    {"raw_key": "付款人", "raw_value": "华南贸易有限公司", "evidence": {"page": 1, "text": "付款人：华南贸易有限公司", "region_hint": "付款人区域"}},
+    {"raw_key": "付款人账号", "raw_value": "1020304050607080", "evidence": {"page": 1, "text": "付款人账号：1020304050607080", "region_hint": "付款账号区域"}},
+    {"raw_key": "入账行", "raw_value": "中国工商银行上海分行", "evidence": {"page": 1, "text": "入账行：中国工商银行上海分行", "region_hint": "入账行区域"}},
+    {"raw_key": "用途", "raw_value": "货款", "evidence": {"page": 1, "text": "用途：货款", "region_hint": "用途区域"}},
+    {"raw_key": "出票日期", "raw_value": "2026年05月06日", "evidence": {"page": 1, "text": "出票日期：2026年05月06日", "region_hint": "日期区域"}},
+    {"raw_key": "备注", "raw_value": "不可转让", "evidence": {"page": 1, "text": "备注：不可转让", "region_hint": "备注区域"}}
+  ],
   "extracted_fields": [
     {"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "收款人区域"}, "mapping_source": "ai"},
     {"normalized_field": "amount", "raw_label": "金额", "raw_value": "128,500.00", "confidence": 0.9, "evidence": {"page": 1, "text": "金额：128,500.00", "region_hint": "金额框"}, "mapping_source": "ai"},

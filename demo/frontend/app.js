@@ -199,6 +199,7 @@ function renderExtraction(extraction, sourceLabel) {
   lastExtraction = extraction;
   qs("customExtraction").value = JSON.stringify(extraction, null, 2);
   const fields = extraction.extracted_fields || [];
+  const documentItems = extraction.document_items || [];
   const avgConfidence = fields.length ? Math.round((fields.reduce((sum, field) => sum + Number(field.confidence || 0), 0) / fields.length) * 100) : 0;
   const isLive = sourceLabel.includes("真实模型");
   qs("extractionStatus").innerHTML = `
@@ -208,9 +209,9 @@ function renderExtraction(extraction, sourceLabel) {
       <em>提取字段</em>
     </div>
     <div class="status-card">
-      <span>平均置信度</span>
-      <strong>${avgConfidence}%</strong>
-      <em>${isLive ? "来自模型输出" : "样例标注"}</em>
+      <span>票面 Key/Value</span>
+      <strong>${documentItems.length}</strong>
+      <em>原文摘录</em>
     </div>
     <div class="status-card ${(extraction.special_risks || []).length ? "warn" : ""}">
       <span>特殊提示</span>
@@ -219,6 +220,19 @@ function renderExtraction(extraction, sourceLabel) {
     </div>
   `;
   qs("extractionSummary").innerHTML = "";
+  documentItems.forEach((item) => {
+    const chip = document.createElement("div");
+    chip.className = "field-chip raw-item";
+    chip.innerHTML = `
+      <div class="field-chip-head">
+        <strong>${escapeHtml(item.raw_key || "未命名字段")}</strong>
+        <em>票面原文</em>
+      </div>
+      <span>${escapeHtml(item.raw_value || "-")}</span>
+      <small>证据：${escapeHtml(item.evidence?.text || "-")}</small>
+    `;
+    qs("extractionSummary").appendChild(chip);
+  });
   fields.forEach((field) => {
     const chip = document.createElement("div");
     chip.className = `field-chip ${confidenceClass(field.confidence)}`;
@@ -229,6 +243,7 @@ function renderExtraction(extraction, sourceLabel) {
       </div>
       <span>${escapeHtml(field.raw_value)}</span>
       <small>票面标签：${escapeHtml(field.raw_label || "-")}</small>
+      <small>映射来源：${escapeHtml(field.mapping_source || "ai")}</small>
       <small>证据：${escapeHtml(field.evidence?.text || "-")}</small>
     `;
     qs("extractionSummary").appendChild(chip);
