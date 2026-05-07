@@ -33,6 +33,8 @@
 - [Demo 技术方案](docs/demo-technical-solution.md)：模型调用、后端结构、配置、规则比对和实施步骤。
 - [评审摘要](docs/review-summary.md)：适合会议沟通的短版摘要。
 - [模板参考要点](docs/online-template-notes.md)：公开票据模板字段参考。
+- [网页与脚本调用差异排查](docs/web-vs-script-troubleshooting.md)：解释为什么脚本文本测试可通，但网页端可能失败，以及公司电脑上的排查顺序。
+- [业务汇报 PPT](docs/business-overview-deck/output/bill_verification_business_overview.pptx)：面向业务同事的几页结构化表达，预览图在 `docs/business-overview-deck/previews/`。
 
 ## 核心链路
 
@@ -91,4 +93,3 @@ http://127.0.0.1:8000/
 - 跨境电汇：收款账号不一致。
 
 样例数据均为合成数据，不包含公司真实敏感信息。
-
