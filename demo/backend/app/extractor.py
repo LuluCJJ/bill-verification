@@ -17,6 +17,18 @@ EXTRACTION_PROMPT = """
 4. 字段使用 normalized_field 表示标准字段。
 5. 每个字段保留 raw_label、raw_value、confidence、evidence。
 6. 特殊票面风险如 Not Negotiable、A/C Payee Only、不可转让，放入 special_risks。
+7. 不要用项目符号、解释文字或自然语言总结，只返回一个 JSON 对象。
+
+JSON 格式示例：
+{{
+  "document_type": "check",
+  "extracted_fields": [
+    {{"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}}
+  ],
+  "special_risks": [
+    {{"type": "non_transferable", "text": "不可转让", "confidence": 0.9, "evidence": {{"page": 1, "text": "不可转让", "region_hint": ""}}}}
+  ]
+}}
 
 标准字段包括：
 付款方名称 payer_name，付款方账号 payer_account，付款方银行 payer_bank，收款方名称 beneficiary_name，
@@ -44,13 +56,112 @@ def build_extraction_prompt() -> str:
 
 
 def parse_model_json(payload: dict[str, Any]) -> dict[str, Any]:
-    content = payload["choices"][0]["message"]["content"]
+    content = model_content(payload)
     if isinstance(content, list):
         content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
     match = re.search(r"\{.*\}", str(content), re.S)
     if not match:
-        raise ValueError("Model response does not contain a JSON object.")
+        return parse_plain_text_extraction(str(content))
     return json.loads(match.group(0))
+
+
+def model_content(payload: dict[str, Any]) -> Any:
+    return payload["choices"][0]["message"]["content"]
+
+
+PLAIN_LABEL_MAP = {
+    "收款人": "beneficiary_name",
+    "收款方": "beneficiary_name",
+    "受益人": "beneficiary_name",
+    "beneficiary": "beneficiary_name",
+    "金额": "amount",
+    "付款金额": "amount",
+    "amount": "amount",
+    "币种": "currency",
+    "currency": "currency",
+    "收款账号": "beneficiary_account",
+    "收款人账号": "beneficiary_account",
+    "受益人账号": "beneficiary_account",
+    "beneficiary account": "beneficiary_account",
+    "付款人": "payer_name",
+    "付款方": "payer_name",
+    "payer": "payer_name",
+    "付款人账号": "payer_account",
+    "付款方账号": "payer_account",
+    "payer account": "payer_account",
+    "用途": "purpose",
+    "付款用途": "purpose",
+    "purpose": "purpose",
+    "出票日期": "payment_date",
+    "付款日期": "payment_date",
+    "日期": "payment_date",
+    "date": "payment_date",
+    "支票号码": "check_number",
+    "票据号码": "check_number",
+    "备注": "note",
+}
+
+
+def parse_plain_text_extraction(content: str) -> dict[str, Any]:
+    fields = []
+    special_risks = []
+    for raw_line in content.splitlines():
+        line = raw_line.strip().lstrip("-*•").strip()
+        if not line or ("：" not in line and ":" not in line):
+            continue
+        label, value = re.split(r"[:：]", line, maxsplit=1)
+        label = label.strip().strip("*").strip()
+        value = value.strip().strip("*").strip()
+        normalized = map_plain_label(label)
+        if not normalized or not value:
+            continue
+        if normalized in {"note"} and is_special_risk(value):
+            special_risks.append(
+                {
+                    "type": "non_transferable",
+                    "text": value,
+                    "confidence": 0.85,
+                    "evidence": {"page": 1, "text": line, "region_hint": ""},
+                }
+            )
+            continue
+        if normalized == "check_number":
+            continue
+        fields.append(
+            {
+                "normalized_field": normalized,
+                "raw_label": label,
+                "raw_value": value,
+                "confidence": 0.82,
+                "evidence": {"page": 1, "text": line, "region_hint": ""},
+                "mapping_source": "plain_text_fallback",
+            }
+        )
+        if is_special_risk(value):
+            special_risks.append(
+                {
+                    "type": "non_transferable",
+                    "text": value,
+                    "confidence": 0.85,
+                    "evidence": {"page": 1, "text": line, "region_hint": ""},
+                }
+            )
+    return {"document_type": "unknown", "extracted_fields": fields, "special_risks": special_risks}
+
+
+def map_plain_label(label: str) -> str:
+    clean = re.sub(r"\s+", " ", label).strip().lower()
+    if clean in PLAIN_LABEL_MAP:
+        return PLAIN_LABEL_MAP[clean]
+    for key, field in PLAIN_LABEL_MAP.items():
+        if key.lower() in clean:
+            return field
+    return ""
+
+
+def is_special_risk(value: str) -> bool:
+    raw = value.lower()
+    return "不可转让" in raw or "not negotiable" in raw or "account payee" in raw or "a/c payee" in raw
 
 
 def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any]) -> dict[str, Any]:
