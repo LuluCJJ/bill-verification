@@ -33,11 +33,12 @@ test_model_api.py -> OpenAI-compatible 模型接口
 真正的底层差异主要在这里：
 
 - `scripts/test_model_api.py` 使用 `requests.post(...)`，配置来自命令行参数、环境变量或 `.env`。
-- 网页 Demo 由 FastAPI 后端发请求，配置来自 `config.local.json`，正式调用默认使用 `httpx.AsyncClient(...)`。
+- 网页 Demo 由 FastAPI 后端发请求，配置来自 `config.local.json`，正式模型调用现在也使用 `requests.post(...)`，尽量和脚本保持一致。
+- 诊断页里的 `httpx 对照调用` 只是为了证明公司网络/代理对不同 HTTP 客户端的差异，不再作为正式模型调用链路。
 - `requests` 和 `httpx` 对代理环境变量、TLS/证书、连接建立、超时和异常处理的实现不同。在公司电脑上，这类差异可能导致脚本能通、后端正式通道偶发或稳定失败。
 - 如果脚本是在一个终端里跑，网页后端是通过双击 bat、IDE 或另一个终端启动，两者拿到的环境变量、代理、证书配置也可能不同。
 
-为降低这个差异，正式后端已调整为：优先使用 `httpx`，遇到网络类错误或超时时，自动退回 `test_model_api.py` 同款 `requests` 通道。
+为降低这个差异，正式后端已调整为：文本和图片正式调用都走 `test_model_api.py` 同款 `requests` 通道。
 
 ## 常见原因
 
@@ -106,8 +107,8 @@ test_model_api.py -> OpenAI-compatible 模型接口
 - **本地后端失败**：页面没有连上本机 FastAPI，通常是服务没启动、端口被占用，或公司电脑限制本地端口访问。
 - **模型配置失败**：`config.local.json` 没有保存完整配置，通常是 API Key 没填、保存失败，或页面和脚本读取的不是同一套配置。
 - **文本模型调用失败**：本地后端已经启动，但 Python 后端访问模型接口失败。常见原因是模型名/URL/权限错误、公司代理差异、证书或网络阻断。
-- **脚本同款 requests 调用成功，但文本模型调用失败**：配置和模型权限大概率没问题，差异集中在 HTTP 客户端/代理/TLS/连接处理。正式调用已支持网络类失败时自动退回 requests。
-- **脚本同款 requests 调用也失败**：问题不在 `httpx` 和 `requests` 的差异，而更可能是网页保存的配置、后端启动环境、代理/证书、模型权限或公司网络限制。
+- **文本模型调用成功，但 httpx 对照调用失败**：配置和模型权限没问题，差异集中在 HTTP 客户端/代理/TLS/连接处理。正式链路已经切到 requests。
+- **文本模型调用失败**：后端进程内 requests 调用失败。若外部 `test_model_api.py` 成功，优先检查网页保存的配置、后端启动环境、代理/证书、Python 解释器和工作目录。
 - **图片模型调用失败**：文本链路可用，但多模态图片链路失败。常见原因是模型不支持图片、图片格式不被支持、base64 image_url 协议不兼容，或图片过大/格式异常。
 - **偶发 ConnectError**：如果重试后成功，说明配置本身大概率没问题，更像公司网络、代理或模型网关的瞬时连接问题。
 
@@ -120,3 +121,28 @@ test_model_api.py -> OpenAI-compatible 模型接口
 ```
 
 如果脚本图片测试也失败，说明问题更靠近模型接口、图片格式或多模态协议；如果脚本图片测试成功但网页图片测试失败，再回到本地服务配置、代理和后端日志排查。
+
+## 图片专项探测
+
+如果文本链路成功但图片链路失败，可以运行图片专项脚本。它会用同一个 endpoint、model 和 API Key，依次发送四种图片：
+
+- `tiny_png`：极小 PNG，用于判断是否完全不接受图片字段。
+- `text_card_png`：简单文字图片，用于判断模型是否能读到图片内容。
+- `sample_resized_png`：压缩后的付款文件样例，用于判断是否是图片大小或代理限制。
+- `sample_original_png`：原始付款文件样例，用于接近 Demo 主流程。
+
+默认使用标准 OpenAI-compatible 图片格式：
+
+```bat
+.venv\Scripts\python.exe scripts\test_image_api_variants.py
+```
+
+如果全部 504，尤其返回 `HIS Proxy Notification`，通常说明公司代理/网关对带 base64 图片的请求做了拦截或超时，而不是字段映射逻辑问题。
+
+也可以尝试另一种兼容格式：
+
+```bat
+.venv\Scripts\python.exe scripts\test_image_api_variants.py --style image_url_string
+```
+
+如果小图成功、大图失败，优先考虑图片体积、代理请求体大小、超时时间或网关限制。如果小图都失败，优先确认当前模型是否真的是多模态模型，以及公司内代理是否允许 `image_url`/base64 data URL。

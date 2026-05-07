@@ -36,7 +36,7 @@ class ModelClient:
         }
         return await self._post_chat(payload)
 
-    async def chat_text_requests(self, prompt: str) -> dict[str, Any]:
+    async def chat_text_httpx(self, prompt: str) -> dict[str, Any]:
         if not self.configured:
             raise RuntimeError("LLM_BASE_URL and LLM_API_KEY are required for model calls.")
         payload = {
@@ -44,7 +44,7 @@ class ModelClient:
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
         }
-        return await asyncio.to_thread(self._post_chat_requests, payload)
+        return await self._post_chat_httpx(payload)
 
     async def chat_image(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
         if not self.configured:
@@ -65,7 +65,7 @@ class ModelClient:
         }
         return await self._post_chat(payload)
 
-    async def chat_image_requests(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
+    async def chat_image_httpx(self, prompt: str, image_base64: str, mime_type: str = "image/png") -> dict[str, Any]:
         if not self.configured:
             raise RuntimeError("LLM_BASE_URL and LLM_API_KEY are required for model calls.")
         data_url = f"data:{mime_type};base64,{image_base64}"
@@ -82,9 +82,12 @@ class ModelClient:
             ],
             "temperature": 0.1,
         }
-        return await asyncio.to_thread(self._post_chat_requests, payload)
+        return await self._post_chat_httpx(payload)
 
     async def _post_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return await asyncio.to_thread(self._post_chat_requests, payload)
+
+    async def _post_chat_httpx(self, payload: dict[str, Any]) -> dict[str, Any]:
         endpoint = f"{self.base_url}/chat/completions"
         try:
             async with httpx.AsyncClient(timeout=self.timeout, trust_env=True) as client:
@@ -92,15 +95,9 @@ class ModelClient:
                 self._raise_for_status(response)
                 return response.json()
         except httpx.TimeoutException as exc:
-            return await self._fallback_requests(payload, f"Model API timeout after {self.timeout}s: {endpoint}", exc)
+            raise RuntimeError(f"Model API timeout after {self.timeout}s: {endpoint}") from exc
         except httpx.RequestError as exc:
-            return await self._fallback_requests(payload, f"Model API network error via httpx: {exc.__class__.__name__}: {exc}", exc)
-
-    async def _fallback_requests(self, payload: dict[str, Any], primary_message: str, primary_exc: Exception) -> dict[str, Any]:
-        try:
-            return await asyncio.to_thread(self._post_chat_requests, payload)
-        except Exception as fallback_exc:
-            raise RuntimeError(f"{primary_message}; fallback requests also failed: {fallback_exc}") from primary_exc
+            raise RuntimeError(f"Model API network error via httpx: {exc.__class__.__name__}: {exc}") from exc
 
     def _post_chat_requests(self, payload: dict[str, Any]) -> dict[str, Any]:
         endpoint = f"{self.base_url}/chat/completions"

@@ -182,23 +182,22 @@ async def diagnose_model(payload: ModelDiagnoseRequest) -> dict:
     text_ok, text_result, text_attempts = await _with_retry(lambda: client.chat_text(text_prompt))
     if text_ok:
         content = text_result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        report["steps"].append(_model_step("文本模型调用", True, "正式后端通道请求成功。网络类失败时会自动退回 test_model_api.py 同款 requests 通道。", attempts=text_attempts, response_preview=content[:200]))
+        report["steps"].append(_model_step("文本模型调用", True, "正式后端已使用 test_model_api.py 同款 requests 通道，请求成功。", attempts=text_attempts, response_preview=content[:200]))
     else:
         report["steps"].append(_model_step("文本模型调用", False, text_result, attempts=text_attempts))
 
-    requests_ok, requests_result, requests_attempts = await _with_retry(lambda: client.chat_text_requests(text_prompt))
-    if requests_ok:
-        content = requests_result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        report["steps"].append(_model_step("脚本同款 requests 调用", True, "后端同进程内使用 requests 请求成功。", attempts=requests_attempts, response_preview=content[:200]))
+    httpx_ok, httpx_result, httpx_attempts = await _with_retry(lambda: client.chat_text_httpx(text_prompt))
+    if httpx_ok:
+        content = httpx_result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        report["steps"].append(_model_step("httpx 对照调用", True, "httpx 对照通道请求成功。", attempts=httpx_attempts, response_preview=content[:200]))
     else:
-        report["steps"].append(_model_step("脚本同款 requests 调用", False, requests_result, attempts=requests_attempts))
+        report["steps"].append(_model_step("httpx 对照调用", False, httpx_result, attempts=httpx_attempts))
 
-    if not text_ok and requests_ok:
-        report["summary"] = "正式通道失败，但 requests 通道成功"
-        report["steps"].append(_model_step("差异判断", True, "配置和模型权限大概率没问题，差异集中在 HTTP 客户端/代理/TLS/连接处理。正式调用已支持网络类失败时自动退回 requests。"))
-    elif not text_ok and not requests_ok:
+    if text_ok and not httpx_ok:
+        report["steps"].append(_model_step("差异判断", True, "requests 可用但 httpx 对照失败。配置和模型权限没问题，正式链路已切换为 requests。"))
+    elif not text_ok:
         report["summary"] = "文本模型调用失败"
-        report["steps"].append(_model_step("差异判断", False, "后端进程内 httpx 和 requests 都失败。若外部 test_model_api.py 成功，优先检查网页保存的配置、启动后端的环境变量/代理、Python 解释器和工作目录。"))
+        report["steps"].append(_model_step("差异判断", False, "后端进程内 requests 调用失败。若外部 test_model_api.py 成功，优先检查网页保存的配置、启动后端的环境变量/代理、Python 解释器和工作目录。"))
         return report
 
     if payload.include_image:
