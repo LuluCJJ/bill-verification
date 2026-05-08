@@ -4,6 +4,7 @@
   "document_items": [
     {"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "收款人区域"}},
     {"raw_key": "金额", "raw_value": "128,500.00", "evidence": {"page": 1, "text": "金额：128,500.00", "region_hint": "金额框"}},
+    {"raw_key": "大写金额", "raw_value": "人民币壹拾贰万捌仟伍佰元整", "evidence": {"page": 1, "text": "大写金额：人民币壹拾贰万捌仟伍佰元整", "region_hint": "金额大写区域"}},
     {"raw_key": "币种", "raw_value": "人民币", "evidence": {"page": 1, "text": "币种：人民币", "region_hint": "金额区域"}},
     {"raw_key": "收款账号", "raw_value": "6222009988776655", "evidence": {"page": 1, "text": "收款账号：6222009988776655", "region_hint": "收款账号区域"}},
     {"raw_key": "付款人", "raw_value": "华南贸易有限公司", "evidence": {"page": 1, "text": "付款人：华南贸易有限公司", "region_hint": "付款人区域"}},
@@ -16,6 +17,7 @@
   "extracted_fields": [
     {"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "收款人区域"}, "mapping_source": "ai"},
     {"normalized_field": "amount", "raw_label": "金额", "raw_value": "128,500.00", "confidence": 0.9, "evidence": {"page": 1, "text": "金额：128,500.00", "region_hint": "金额框"}, "mapping_source": "ai"},
+    {"normalized_field": "amount_in_words", "raw_label": "大写金额", "raw_value": "人民币壹拾贰万捌仟伍佰元整", "confidence": 0.88, "evidence": {"page": 1, "text": "大写金额：人民币壹拾贰万捌仟伍佰元整", "region_hint": "金额大写区域"}, "mapping_source": "ai"},
     {"normalized_field": "currency", "raw_label": "币种", "raw_value": "人民币", "confidence": 0.88, "evidence": {"page": 1, "text": "币种：人民币", "region_hint": "金额区域"}, "mapping_source": "ai"},
     {"normalized_field": "beneficiary_account", "raw_label": "收款账号", "raw_value": "6222009988776655", "confidence": 0.9, "evidence": {"page": 1, "text": "收款账号：6222009988776655", "region_hint": "收款账号区域"}, "mapping_source": "ai"},
     {"normalized_field": "payer_name", "raw_label": "付款人", "raw_value": "华南贸易有限公司", "confidence": 0.9, "evidence": {"page": 1, "text": "付款人：华南贸易有限公司", "region_hint": "付款人区域"}, "mapping_source": "ai"},

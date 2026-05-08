@@ -115,5 +115,6 @@ class FeedbackRequest(BaseModel):
 
 class CustomVerificationRequest(BaseModel):
     sample_id: str = "custom_input"
+    template_id: str | None = None
     payment_instruction: dict[str, Any]
     extraction: ExtractionResult

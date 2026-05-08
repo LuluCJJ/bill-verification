@@ -8,6 +8,8 @@ let uploadedDocument = null;
 let lastExtraction = null;
 let lastVerification = null;
 let resultFilter = "risks";
+let selectedVerifyTemplateId = "";
+let selectedConfigTemplateIndex = 0;
 
 const qs = (id) => document.getElementById(id);
 
@@ -103,6 +105,7 @@ async function init() {
   await loadModelSettings();
   renderPaymentForm({});
   renderTemplateList();
+  renderVerifyTemplateList();
   renderBusinessConfig();
   renderAiTuningConfig();
   await loadSamples();
@@ -123,13 +126,13 @@ async function loadSamples() {
 }
 
 async function selectSample(sampleId, button) {
-  document.querySelectorAll(".sample-list button").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll("#sampleList button").forEach((x) => x.classList.remove("active"));
   button.classList.add("active");
   selectedSample = await api(`/api/samples/${sampleId}`);
   uploadedDocument = null;
   lastExtraction = selectedSample.expected_result;
   qs("documentFrame").src = selectedSample.image_path;
-  qs("currentTemplate").textContent = selectedSample.template_id || "-";
+  selectVerifyTemplate(selectedSample.template_id || selectedVerifyTemplateId, false);
   qs("aiStatus").textContent = "等待预审";
   qs("uploadHint").textContent = "当前使用样例票据。点击“开始 AI 预审”会调用真实模型提取票面字段。";
   fillPayment(selectedSample.payment_instruction);
@@ -157,6 +160,7 @@ function renderPaymentForm(values) {
 
 function fillPayment(values) {
   renderPaymentForm(values || {});
+  renderVerifyFieldChecklist();
 }
 
 function readPaymentForm() {
@@ -169,6 +173,8 @@ function readPaymentForm() {
 
 async function startPreAudit() {
   if (!selectedSample && !uploadedDocument) throw new Error("请先选择任务或上传票据。");
+  const templateId = selectedVerifyTemplateId || selectedSample?.template_id || activeTemplateId();
+  if (!templateId) throw new Error("请先选择一个已配置的核验模板。");
   qs("aiStatus").textContent = "AI 提取中";
   clearResults();
   await saveModelSettings(false);
@@ -180,7 +186,7 @@ async function startPreAudit() {
       prompt: "请按当前模板字段配置从票据中定向提取字段。",
       image_base64: image.base64,
       mime_type: image.mimeType,
-      template_id: selectedSample?.template_id || activeTemplateId(),
+      template_id: templateId,
     }),
   });
   lastExtraction = extraction;
@@ -195,11 +201,79 @@ async function runCustomVerify() {
   if (!lastExtraction) {
     lastExtraction = JSON.parse(qs("customExtraction").value);
   }
+  const templateId = selectedVerifyTemplateId || selectedSample?.template_id || activeTemplateId();
   const result = await api("/api/verify-custom", {
     method: "POST",
-    body: JSON.stringify({ sample_id: selectedSample?.id || "custom_input", payment_instruction: readPaymentForm(), extraction: lastExtraction }),
+    body: JSON.stringify({ sample_id: selectedSample?.id || "custom_input", template_id: templateId, payment_instruction: readPaymentForm(), extraction: lastExtraction }),
   });
   renderResult(result);
+}
+
+function renderVerifyTemplateList() {
+  const box = qs("verifyTemplateList");
+  if (!box) return;
+  const templates = templateAiConfig.templates || [];
+  if (selectedVerifyTemplateId && !templates.some((template) => template.template_id === selectedVerifyTemplateId)) {
+    selectedVerifyTemplateId = templates[0]?.template_id || "";
+  }
+  box.innerHTML = "";
+  templates.forEach((template) => {
+    const btn = document.createElement("button");
+    btn.textContent = `${template.name || template.template_id} · ${(template.fields || []).length}项`;
+    btn.dataset.templateId = template.template_id;
+    btn.className = template.template_id === selectedVerifyTemplateId ? "active" : "";
+    btn.onclick = () => selectVerifyTemplate(template.template_id, true);
+    box.appendChild(btn);
+  });
+  if (!selectedVerifyTemplateId && templates[0]) {
+    selectVerifyTemplate(templates[0].template_id, false);
+  }
+}
+
+function selectVerifyTemplate(templateId, clearVerification = true) {
+  if (!templateId) return;
+  selectedVerifyTemplateId = templateId;
+  qs("currentTemplate").textContent = templateId;
+  document.querySelectorAll("#verifyTemplateList button").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.templateId === templateId);
+  });
+  renderVerifyFieldChecklist();
+  if (lastExtraction) renderExtraction(lastExtraction, qs("aiStatus").textContent === "预审完成" ? "真实模型提取结果" : "预置样例结果，仅作对照");
+  if (clearVerification) clearResults();
+}
+
+function templateById(templateId) {
+  return (templateAiConfig.templates || []).find((template) => template.template_id === templateId);
+}
+
+function configuredTemplateFields(templateId = selectedVerifyTemplateId) {
+  return templateById(templateId)?.fields || [];
+}
+
+function renderVerifyFieldChecklist() {
+  const box = qs("verifyFieldChecklist");
+  if (!box) return;
+  const template = templateById(selectedVerifyTemplateId);
+  const fields = configuredTemplateFields();
+  qs("verifyFieldCount").textContent = `${fields.length} 项`;
+  if (!template) {
+    box.innerHTML = `<div class="empty-state">请先选择一个模板。</div>`;
+    return;
+  }
+  const payment = readPaymentForm();
+  box.innerHTML = "";
+  fields.forEach((field) => {
+    const div = document.createElement("div");
+    const value = payment[field.field_id];
+    div.className = "verify-field-card";
+    div.innerHTML = `
+      <strong>${escapeHtml(field.display_name || fieldLabel(field.field_id))}</strong>
+      <span>${escapeHtml(field.source_system_field || field.field_id)}</span>
+      <p>${empty(value)}</p>
+      <small>${escapeHtml((field.aliases || []).slice(0, 4).join("、") || field.business_meaning || "未配置票面叫法")}</small>
+    `;
+    box.appendChild(div);
+  });
 }
 
 function renderExtraction(extraction, sourceLabel) {
@@ -207,54 +281,65 @@ function renderExtraction(extraction, sourceLabel) {
   qs("customExtraction").value = JSON.stringify(extraction, null, 2);
   const fields = extraction.extracted_fields || [];
   const documentItems = extraction.document_items || [];
+  const templateFields = configuredTemplateFields();
+  const extractedByField = new Map();
+  fields.forEach((field) => {
+    const current = extractedByField.get(field.normalized_field);
+    if (!current || Number(field.confidence || 0) > Number(current.confidence || 0)) extractedByField.set(field.normalized_field, field);
+  });
+  const missingCount = templateFields.filter((field) => field.field_id !== "non_transferable" && !extractedByField.has(field.field_id)).length;
   const avgConfidence = fields.length ? Math.round((fields.reduce((sum, field) => sum + Number(field.confidence || 0), 0) / fields.length) * 100) : 0;
   const isLive = sourceLabel.includes("真实模型");
   qs("extractionStatus").innerHTML = `
     <div class="status-card ${isLive ? "live" : "sample"}">
       <span>${isLive ? "真实 AI 识别" : "样例预置结果"}</span>
-      <strong>${fields.length}</strong>
-      <em>提取字段</em>
+      <strong>${templateFields.length}</strong>
+      <em>模板待检字段</em>
+    </div>
+    <div class="status-card ${missingCount ? "warn" : ""}">
+      <span>未识别字段</span>
+      <strong>${missingCount}</strong>
+      <em>将进入风险提示</em>
     </div>
     <div class="status-card">
-      <span>票面 Key/Value</span>
-      <strong>${documentItems.length}</strong>
-      <em>原文摘录</em>
-    </div>
-    <div class="status-card ${(extraction.special_risks || []).length ? "warn" : ""}">
-      <span>特殊提示</span>
-      <strong>${(extraction.special_risks || []).length}</strong>
-      <em>票面额外风险</em>
+      <span>平均置信度</span>
+      <strong>${avgConfidence}%</strong>
+      <em>${documentItems.length} 条原文摘录</em>
     </div>
   `;
   qs("extractionSummary").innerHTML = "";
-  documentItems.forEach((item) => {
+  if (!templateFields.length) {
+    qs("extractionSummary").innerHTML = `<div class="empty-state">当前未选择模板或模板未配置字段。</div>`;
+    return;
+  }
+  templateFields.forEach((templateField) => {
+    const field = extractedByField.get(templateField.field_id);
     const chip = document.createElement("div");
-    chip.className = "field-chip raw-item";
+    chip.className = `field-chip ${field ? confidenceClass(field.confidence) : "missing-field"}`;
     chip.innerHTML = `
       <div class="field-chip-head">
-        <strong>${escapeHtml(item.raw_key || "未命名字段")}</strong>
-        <em>票面原文</em>
+        <strong>${escapeHtml(templateField.display_name || fieldLabel(templateField.field_id))}</strong>
+        <em>${field ? `${Math.round((field.confidence || 0) * 100)}%` : "未提取"}</em>
       </div>
-      <span>${escapeHtml(item.raw_value || "-")}</span>
-      <small>证据：${escapeHtml(item.evidence?.text || "-")}</small>
+      <span>${field ? escapeHtml(field.raw_value) : "AI 未在票面中识别到该系统字段"}</span>
+      <small>系统字段：${escapeHtml(templateField.source_system_field || templateField.field_id)}</small>
+      <small>票面标签：${field ? escapeHtml(field.raw_label || "-") : escapeHtml((templateField.aliases || []).join("、") || "-")}</small>
+      <small>证据：${field ? escapeHtml(field.evidence?.text || "-") : "无"}</small>
     `;
     qs("extractionSummary").appendChild(chip);
   });
-  fields.forEach((field) => {
-    const chip = document.createElement("div");
-    chip.className = `field-chip ${confidenceClass(field.confidence)}`;
-    chip.innerHTML = `
-      <div class="field-chip-head">
-        <strong>${fieldLabel(field.normalized_field)}</strong>
-        <em>${Math.round((field.confidence || 0) * 100)}%</em>
-      </div>
-      <span>${escapeHtml(field.raw_value)}</span>
-      <small>票面标签：${escapeHtml(field.raw_label || "-")}</small>
-      <small>映射来源：${escapeHtml(field.mapping_source || "ai")}</small>
-      <small>证据：${escapeHtml(field.evidence?.text || "-")}</small>
-    `;
-    qs("extractionSummary").appendChild(chip);
-  });
+  if (documentItems.length) {
+    const details = document.createElement("details");
+    details.className = "raw-items-detail";
+    details.innerHTML = `<summary>查看模型返回的票面原文摘录（${documentItems.length} 条）</summary>`;
+    documentItems.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "raw-item-row";
+      row.innerHTML = `<b>${escapeHtml(item.raw_key || "未命名字段")}</b><span>${escapeHtml(item.raw_value || "-")}</span><small>${escapeHtml(item.evidence?.text || "-")}</small>`;
+      details.appendChild(row);
+    });
+    qs("extractionSummary").appendChild(details);
+  }
 }
 
 function renderResult(result) {
@@ -406,60 +491,85 @@ function renderTemplateList() {
   box.innerHTML = "";
   (templateAiConfig.templates || []).forEach((template, index) => {
     const btn = document.createElement("button");
-    btn.textContent = `${template.ai_enabled ? "已启用" : "未启用"} / ${template.country || "GLOBAL"} / ${template.template_id}`;
+    btn.textContent = `${template.ai_enabled ? "已启用" : "未启用"} / ${template.country || "GLOBAL"} / ${template.name || template.template_id}`;
+    btn.className = index === selectedConfigTemplateIndex ? "active" : "";
     btn.onclick = () => selectTemplate(index, btn);
     box.appendChild(btn);
   });
-  if (box.querySelector("button")) box.querySelector("button").click();
+  if (box.querySelector("button")) {
+    const index = Math.min(selectedConfigTemplateIndex, box.children.length - 1);
+    box.children[index].click();
+  } else {
+    renderAiTuningConfig(null);
+  }
 }
 
 function selectTemplate(index, button) {
+  selectedConfigTemplateIndex = index;
   document.querySelectorAll("#templateList button").forEach((x) => x.classList.remove("active"));
   button.classList.add("active");
   const template = templateAiConfig.templates[index];
-  qs("templateTitle").textContent = `模板字段配置：${template.template_id}`;
+  qs("templateTitle").textContent = `模板字段配置：${template.name || template.template_id}`;
   renderAiTuningConfig(template);
 }
 
 function renderAiTuningConfig(template = (templateAiConfig.templates || [])[0]) {
   const box = qs("aiTuningConfig");
   box.innerHTML = "";
-  if (!template) return;
+  if (!template) {
+    box.innerHTML = `<div class="empty-state">暂无模板，请先新增一个模板。</div>`;
+    return;
+  }
   const meta = document.createElement("section");
   meta.className = "tuning-group";
   meta.innerHTML = `
+    <h3>模板基础信息</h3>
+    <div class="template-meta-grid">
+      <label>模板编码<input id="templateIdInput" value="${escapeHtml(template.template_id || "")}" /></label>
+      <label>模板名称<input id="templateNameInput" value="${escapeHtml(template.name || "")}" /></label>
+      <label>单据类型<input id="templateDocTypeInput" value="${escapeHtml(template.document_type || "")}" /></label>
+      <label>国家/地区<input id="templateCountryInput" value="${escapeHtml(template.country || "")}" /></label>
+    </div>
     <h3>模板发布状态</h3>
     <label>AI 启用<select id="templateAiEnabled">${option("true", "启用：正式核验可调用 AI", String(Boolean(template.ai_enabled)))}
       ${option("false", "停用：正式核验不调用 AI", String(Boolean(template.ai_enabled)))}</select></label>
     <label>发布状态<select id="templatePublishStatus">${option("published", "已发布", template.status)}${option("sandbox", "沙箱测试", template.status)}${option("draft", "草稿", template.status)}</select></label>
   `;
   box.appendChild(meta);
-  (template.fields || []).forEach((field) => {
+  (template.fields || []).forEach((field, index) => {
     const card = document.createElement("details");
     card.className = "tuning-card";
     card.open = field.field_id === "beneficiary_bank";
     card.innerHTML = `
       <summary>${escapeHtml(field.display_name || fieldLabel(field.field_id))} <span>${escapeHtml(field.field_id)}</span></summary>
-      <label>系统来源字段<input data-field="${field.field_id}" data-kind="source_system_field" value="${escapeHtml(field.source_system_field || "")}" /></label>
-      <label>业务含义<input data-field="${field.field_id}" data-kind="business_meaning" value="${escapeHtml(field.business_meaning || "")}" /></label>
-      <label>票面可能叫法<input data-field="${field.field_id}" data-kind="aliases" value="${escapeHtml((field.aliases || []).join("、"))}" /></label>
-      <label>位置/模板提示<input data-field="${field.field_id}" data-kind="position_hint" value="${escapeHtml(field.position_hint || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
-      <label>AI 提取要求<input data-field="${field.field_id}" data-kind="extraction_hint" value="${escapeHtml(field.extraction_hint || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
+      <div class="field-edit-grid">
+        <label>字段编码<input data-index="${index}" data-kind="field_id" value="${escapeHtml(field.field_id || "")}" /></label>
+        <label>展示名称<input data-index="${index}" data-kind="display_name" value="${escapeHtml(field.display_name || "")}" /></label>
+        <label>系统来源字段<input data-index="${index}" data-kind="source_system_field" value="${escapeHtml(field.source_system_field || "")}" /></label>
+        <label>业务含义<input data-index="${index}" data-kind="business_meaning" value="${escapeHtml(field.business_meaning || "")}" /></label>
+        <label>票面可能叫法<input data-index="${index}" data-kind="aliases" value="${escapeHtml((field.aliases || []).join("、"))}" /></label>
+        <label>位置/模板提示<input data-index="${index}" data-kind="position_hint" value="${escapeHtml(field.position_hint || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
+        <label>AI 提取要求<input data-index="${index}" data-kind="extraction_hint" value="${escapeHtml(field.extraction_hint || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
+      </div>
+      <button class="danger-link" data-delete-field="${index}">删除字段</button>
     `;
+    card.querySelector("[data-delete-field]").onclick = () => deleteTemplateField(index);
     box.appendChild(card);
   });
 }
 
 async function saveAiTuning() {
-  const active = document.querySelector("#templateList button.active");
-  const index = [...document.querySelectorAll("#templateList button")].indexOf(active);
-  const template = templateAiConfig.templates[index >= 0 ? index : 0];
+  const template = templateAiConfig.templates[selectedConfigTemplateIndex];
   if (!template) return;
+  template.template_id = qs("templateIdInput").value.trim();
+  template.name = qs("templateNameInput").value.trim() || template.template_id;
+  template.document_type = qs("templateDocTypeInput").value.trim();
+  template.country = qs("templateCountryInput").value.trim();
   template.ai_enabled = qs("templateAiEnabled").value === "true";
   template.status = qs("templatePublishStatus").value;
   document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
-    const field = input.dataset.field;
-    const target = (template.fields || []).find((item) => item.field_id === field);
+    if (input.id?.startsWith("template")) return;
+    const target = (template.fields || [])[Number(input.dataset.index)];
     if (!target) return;
     if (input.dataset.kind === "aliases") target.aliases = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
     else target[input.dataset.kind] = input.value.trim();
@@ -468,12 +578,77 @@ async function saveAiTuning() {
   qs("saveAiTuning").textContent = "已保存";
   setTimeout(() => (qs("saveAiTuning").textContent = "保存调优配置"), 1200);
   renderTemplateList();
+  renderVerifyTemplateList();
+  renderVerifyFieldChecklist();
+}
+
+function addTemplate() {
+  const id = `template_${Date.now()}`;
+  templateAiConfig.templates = templateAiConfig.templates || [];
+  templateAiConfig.templates.push({
+    template_id: id,
+    name: "新模板",
+    document_type: "transfer_letter",
+    country: "GLOBAL",
+    ai_enabled: false,
+    status: "draft",
+    fields: [newTemplateField("amount", "金额")],
+  });
+  selectedConfigTemplateIndex = templateAiConfig.templates.length - 1;
+  renderTemplateList();
+}
+
+function copyTemplate() {
+  const source = templateAiConfig.templates?.[selectedConfigTemplateIndex];
+  if (!source) return;
+  const copy = JSON.parse(JSON.stringify(source));
+  copy.template_id = `${source.template_id}_copy_${Date.now().toString().slice(-4)}`;
+  copy.name = `${source.name || source.template_id} 副本`;
+  copy.status = "draft";
+  templateAiConfig.templates.push(copy);
+  selectedConfigTemplateIndex = templateAiConfig.templates.length - 1;
+  renderTemplateList();
+}
+
+function deleteTemplate() {
+  const template = templateAiConfig.templates?.[selectedConfigTemplateIndex];
+  if (!template) return;
+  if (!confirm(`确认删除模板 ${template.name || template.template_id}？保存后生效。`)) return;
+  templateAiConfig.templates.splice(selectedConfigTemplateIndex, 1);
+  selectedConfigTemplateIndex = Math.max(0, selectedConfigTemplateIndex - 1);
+  renderTemplateList();
+  renderVerifyTemplateList();
+}
+
+function addTemplateField() {
+  const template = templateAiConfig.templates?.[selectedConfigTemplateIndex];
+  if (!template) return;
+  template.fields = template.fields || [];
+  template.fields.push(newTemplateField(`field_${template.fields.length + 1}`, "新字段"));
+  renderAiTuningConfig(template);
+}
+
+function deleteTemplateField(index) {
+  const template = templateAiConfig.templates?.[selectedConfigTemplateIndex];
+  if (!template) return;
+  template.fields.splice(index, 1);
+  renderAiTuningConfig(template);
+}
+
+function newTemplateField(fieldId, displayName) {
+  return {
+    field_id: fieldId,
+    source_system_field: fieldId,
+    display_name: displayName,
+    business_meaning: "",
+    aliases: [],
+    position_hint: "",
+    extraction_hint: "",
+  };
 }
 
 function activeTemplateId() {
-  const active = document.querySelector("#templateList button.active");
-  const index = [...document.querySelectorAll("#templateList button")].indexOf(active);
-  return templateAiConfig.templates?.[index]?.template_id || "";
+  return templateAiConfig.templates?.[selectedConfigTemplateIndex]?.template_id || "";
 }
 
 function renderBusinessConfig() {
@@ -639,6 +814,7 @@ function toggleLang() {
   fillPayment(readPaymentForm());
   renderBusinessConfig();
   renderAiTuningConfig();
+  renderVerifyFieldChecklist();
 }
 
 function fillFromSample() {
@@ -753,6 +929,10 @@ qs("runCustomVerify").onclick = () => runCustomVerify().catch((err) => alert(fri
 qs("showExtractionJson").onclick = toggleExtractionJson;
 qs("saveBusinessConfig").onclick = saveBusinessConfig;
 qs("saveAiTuning").onclick = saveAiTuning;
+qs("addTemplate").onclick = addTemplate;
+qs("copyTemplate").onclick = copyTemplate;
+qs("deleteTemplate").onclick = deleteTemplate;
+qs("addTemplateField").onclick = addTemplateField;
 qs("refreshFeedback").onclick = renderFeedbackList;
 qs("saveModelSettings").onclick = () => saveModelSettings().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));
 qs("diagnoseModel").onclick = () => diagnoseModel().catch((err) => (qs("modelTestResult").textContent = friendlyError(err)));

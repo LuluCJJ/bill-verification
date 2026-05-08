@@ -2,8 +2,13 @@
   "sample_id": "cn_check_pass",
   "document_type": "check",
   "extracted_fields": [
+    {"normalized_field": "payer_name", "raw_label": "付款人", "raw_value": "华南贸易有限公司", "confidence": 0.92, "evidence": {"page": 1, "text": "付款人：华南贸易有限公司", "region_hint": "payer section"}},
+    {"normalized_field": "payer_account", "raw_label": "付款人账号", "raw_value": "1020304050607080", "confidence": 0.9, "evidence": {"page": 1, "text": "付款人账号：1020304050607080", "region_hint": "payer section"}},
     {"normalized_field": "payer_bank", "raw_label": "付款银行", "raw_value": "中国工商银行深圳分行", "confidence": 0.94, "evidence": {"page": 1, "text": "中国工商银行深圳分行", "region_hint": "top-left"}},
     {"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.96, "evidence": {"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": "upper-middle"}},
+    {"normalized_field": "beneficiary_account", "raw_label": "收款账号", "raw_value": "6222009988776655", "confidence": 0.93, "evidence": {"page": 1, "text": "收款账号：6222009988776655", "region_hint": "payee section"}},
+    {"normalized_field": "beneficiary_bank", "raw_label": "收款银行", "raw_value": "中国银行上海分行", "confidence": 0.9, "evidence": {"page": 1, "text": "收款银行：中国银行上海分行", "region_hint": "payee section"}},
+    {"normalized_field": "currency", "raw_label": "币种", "raw_value": "CNY", "confidence": 0.95, "evidence": {"page": 1, "text": "币种：CNY", "region_hint": "amount box"}},
     {"normalized_field": "amount", "raw_label": "金额", "raw_value": "128,500.00", "confidence": 0.98, "evidence": {"page": 1, "text": "￥128,500.00", "region_hint": "right amount box"}},
     {"normalized_field": "amount_in_words", "raw_label": "大写金额", "raw_value": "人民币壹拾贰万捌仟伍佰元整", "confidence": 0.93, "evidence": {"page": 1, "text": "人民币壹拾贰万捌仟伍佰元整", "region_hint": "middle line"}},
     {"normalized_field": "payment_date", "raw_label": "出票日期", "raw_value": "2026-05-06", "confidence": 0.95, "evidence": {"page": 1, "text": "出票日期 2026年05月06日", "region_hint": "top-right"}},

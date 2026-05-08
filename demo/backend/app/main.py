@@ -59,18 +59,33 @@ def verify_sample(sample_id: str) -> dict:
 
 @app.post("/api/verify-custom")
 def verify_custom(payload: CustomVerificationRequest) -> dict:
-    result = verify(payload.sample_id, payload.payment_instruction, payload.extraction, verification_schema(payload.sample_id))
+    result = verify(payload.sample_id, payload.payment_instruction, payload.extraction, verification_schema(payload.sample_id, payload.template_id))
     return result.model_dump()
 
 
-def verification_schema(sample_id: str) -> dict:
+def verification_schema(sample_id: str, template_id: str | None = None) -> dict:
     schema = load_config("field_schema.json")
     schema = {key: dict(value) for key, value in schema.items()}
+    target_template_id = template_id
     try:
-        sample = load_sample(sample_id)
-        template = load_template_ai_config(sample.get("template_id"))
-        configured_fields = {field.get("field_id") for field in template.get("fields", []) if field.get("field_id")}
-        schema = {key: value for key, value in schema.items() if key in configured_fields}
+        if not target_template_id:
+            sample = load_sample(sample_id)
+            target_template_id = sample.get("template_id")
+        template = load_template_ai_config(target_template_id)
+        template_schema = {}
+        for field in template.get("fields", []):
+            field_id = field.get("field_id")
+            if not field_id:
+                continue
+            meta = dict(schema.get(field_id, {}))
+            meta.setdefault("display_name", field.get("display_name") or field_id)
+            meta.setdefault("compare_type", "normalized_text")
+            meta.setdefault("risk_level", "medium")
+            if meta.get("document_presence") != "special_risk":
+                meta["document_presence"] = "required"
+            template_schema[field_id] = meta
+        if template_schema:
+            schema = template_schema
     except (KeyError, FileNotFoundError):
         pass
     if sample_id == "alias_feedback_case":
