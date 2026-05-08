@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>权签票据一致性 AI 预审</h1>
-        <p>从付款任务、票面识别、风险核验到模板调优的产品原型</p>
+        <p>基于模板字段配置的票面定向提取与权签预审原型</p>
       </div>
       <div class="top-actions">
         <button id="langToggle">English</button>
@@ -66,7 +66,7 @@
           <div class="panel-head">
             <div>
               <h2>AI 提取结果</h2>
-              <p class="hint">这里展示 AI 从票面读到的字段，以及它映射到的系统字段。点击“开始 AI 预审”后会替换为真实模型结果。</p>
+              <p class="hint">这里展示 AI 按当前模板字段清单从票面定向提取的结果。未发布或未启用模板不会启动 AI 预审。</p>
             </div>
             <div class="panel-actions">
               <button id="showExtractionJson">查看结构化 JSON</button>
@@ -105,14 +105,14 @@
             <div class="panel-head">
               <div>
                 <h2 id="templateTitle">模板调优</h2>
-                <p class="hint">按模板维护字段叫法、位置提示和 AI 识别要求，避免不同银行规则互相冲突。</p>
+                <p class="hint">按模板维护本次要提取的字段、系统来源、业务含义、票面别名、位置提示和 AI 提取要求；配置发布后正式核验才会调用 AI。</p>
               </div>
               <button id="saveAiTuning" class="primary">保存调优配置</button>
             </div>
             <div class="field-groups" id="aiTuningConfig"></div>
             <details class="secondary-config">
               <summary>字段比对口径配置</summary>
-              <p class="hint">这部分后续更适合由 MAP 管理。Demo 中保留用于展示风险等级和比对方式。</p>
+              <p class="hint">这部分后续更适合由交易系统/MAP 通过函数包管理，例如日期转换、金额大小写转换、账号归一等。Demo 中仅保留预览效果。</p>
               <div id="businessConfig"></div>
               <button id="saveBusinessConfig" class="primary">保存字段配置</button>
             </details>

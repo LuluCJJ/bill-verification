@@ -4,28 +4,29 @@ from typing import Any
 
 from .model_client import ModelClient
 from .schemas import ExtractionResult
-from .storage import load_config, load_local_config
+from .storage import load_config, load_local_config, load_template_ai_config
 
 
 EXTRACTION_PROMPT = """
-你是权签票据一致性预审助手。请从票据图片中提取可见字段，并映射到给定标准字段。
+你是权签票据一致性预审助手。请从票据图片中按“当前模板已配置字段清单”做定向提取。
 
 要求：
-1. 只提取票面可见信息，不要补全、改写、翻译或标准化票面文字。
-2. document_items 保存票面原始 Key/Value，raw_key 和 raw_value 必须尽量逐字照抄票面。
-3. extracted_fields 保存映射结果：raw_label/raw_value 仍然照抄票面，normalized_field 才是系统字段。
-4. 如果某个票面 Key/Value 不确定映射到哪个系统字段，可以只放入 document_items，不要强行映射。
-5. 如果不确定，保留低置信度候选，并在 mapping_source 写 "ai_uncertain"。
-6. 输出严格 JSON，不要 Markdown。
-7. 特殊票面风险如 Not Negotiable、A/C Payee Only、不可转让，放入 special_risks。
-8. 不要用项目符号、解释文字或自然语言总结，只返回一个 JSON 对象。
+1. 只围绕“当前模板已配置字段清单”提取，不要新增未配置字段。
+2. 只提取票面可见信息，不要补全、改写、翻译或标准化票面文字。
+3. document_items 保存票面原始 Key/Value，raw_key 和 raw_value 必须尽量逐字照抄票面。
+4. extracted_fields 保存定向提取结果：raw_label/raw_value 仍然照抄票面，normalized_field 必须来自已配置字段 field_id。
+5. 如果某个配置字段在票面中找不到，不要编造值；可以不返回该字段，后续系统会按规则判断缺失。
+6. 如果不确定，保留低置信度候选，并在 mapping_source 写 "ai_uncertain"。
+7. 输出严格 JSON，不要 Markdown。
+8. 特殊票面风险如 Not Negotiable、A/C Payee Only、不可转让，放入 special_risks。
+9. 不要用项目符号、解释文字或自然语言总结，只返回一个 JSON 对象。
 
 JSON 格式示例：
 {{
   "document_type": "check",
   "document_items": [
     {{"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}},
-    {{"raw_key": "入账行", "raw_value": "中国工商银行上海分行", "evidence": {{"page": 1, "text": "入账行：中国工商银行上海分行", "region_hint": ""}}}}
+    {{"raw_key": "收款银行", "raw_value": "中国工商银行上海分行", "evidence": {{"page": 1, "text": "收款银行：中国工商银行上海分行", "region_hint": ""}}}}
   ],
   "extracted_fields": [
     {{"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "mapping_source": "ai", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}}
@@ -35,38 +36,59 @@ JSON 格式示例：
   ]
 }}
 
-标准字段包括：
-付款方名称 payer_name，付款方账号 payer_account，付款方银行 payer_bank，收款方名称 beneficiary_name，
-收款方账号 beneficiary_account，收款方银行 beneficiary_bank，SWIFT/BIC swift_code，IBAN iban，
-币种 currency，金额 amount，大写金额 amount_in_words，付款日期 payment_date，付款用途 purpose，费用承担 charge_bearer。
-
-业务配置补充：
-{business_config}
+当前模板已配置字段清单：
+{target_fields}
 """
 
 
-def build_extraction_prompt() -> str:
-    aliases = load_config("field_aliases.json")
-    rules = load_config("mapping_rules.json")
-    parts = []
-    for field, names in aliases.items():
-        if names:
-            parts.append(f"- {field} 的票面常见叫法：{', '.join(names)}")
-    for rule in rules.get("template_rules", []):
-        hints = rule.get("hints", {})
-        if hints:
-            parts.append(f"- 模板 {rule.get('template_id', 'unknown')} 位置提示：" + "; ".join(f"{k}: {v}" for k, v in hints.items()))
-    business_config = "\n".join(parts) if parts else "无"
-    return EXTRACTION_PROMPT.format(business_config=business_config)
+def configured_template(template_id: str | None) -> dict[str, Any]:
+    template = load_template_ai_config(template_id)
+    if not template.get("ai_enabled") or template.get("status") != "published":
+        raise ValueError(f"Template {template_id} has no published AI field configuration. AI pre-audit will not start.")
+    if not template.get("fields"):
+        raise ValueError(f"Template {template_id} has no configured target fields. AI pre-audit will not start.")
+    return template
 
 
-def parse_model_json(payload: dict[str, Any]) -> dict[str, Any]:
+def configured_field_ids(template: dict[str, Any]) -> set[str]:
+    return {str(field.get("field_id")) for field in template.get("fields", []) if field.get("field_id")}
+
+
+def build_extraction_prompt(template_id: str | None) -> str:
+    template = configured_template(template_id)
+    parts = [
+        f"模板ID：{template.get('template_id')}",
+        f"模板名称：{template.get('name', '')}",
+        f"票据类型：{template.get('document_type', '')}",
+        f"国家/区域：{template.get('country', '')}",
+        "",
+        "字段配置：",
+    ]
+    for field in template.get("fields", []):
+        aliases = "、".join(field.get("aliases", [])) or "无"
+        parts.append(
+            "\n".join(
+                [
+                    f"- field_id: {field.get('field_id')}",
+                    f"  系统来源字段: {field.get('source_system_field', '')}",
+                    f"  展示名称: {field.get('display_name', '')}",
+                    f"  业务含义: {field.get('business_meaning', '')}",
+                    f"  票面别名: {aliases}",
+                    f"  位置提示: {field.get('position_hint', '')}",
+                    f"  提取要求: {field.get('extraction_hint', '')}",
+                ]
+            )
+        )
+    return EXTRACTION_PROMPT.format(target_fields="\n".join(parts))
+
+
+def parse_model_json(payload: dict[str, Any], template_id: str | None = None) -> dict[str, Any]:
     content = model_content(payload)
     if isinstance(content, list):
         content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
     match = re.search(r"\{.*\}", str(content), re.S)
     if not match:
-        return parse_plain_text_extraction(str(content))
+        return parse_plain_text_extraction(str(content), template_id)
     return json.loads(match.group(0))
 
 
@@ -107,7 +129,7 @@ PLAIN_LABEL_MAP = {
 }
 
 
-def parse_plain_text_extraction(content: str) -> dict[str, Any]:
+def parse_plain_text_extraction(content: str, template_id: str | None = None) -> dict[str, Any]:
     document_items = []
     fields = []
     special_risks = []
@@ -119,7 +141,7 @@ def parse_plain_text_extraction(content: str) -> dict[str, Any]:
         label = label.strip().strip("*").strip()
         value = value.strip().strip("*").strip()
         document_items.append({"raw_key": label, "raw_value": value, "evidence": {"page": 1, "text": line, "region_hint": ""}})
-        normalized = map_plain_label(label)
+        normalized = map_plain_label(label, template_id)
         if not normalized or not value:
             continue
         if normalized in {"note"} and is_special_risk(value):
@@ -156,8 +178,25 @@ def parse_plain_text_extraction(content: str) -> dict[str, Any]:
     return {"document_type": "unknown", "document_items": document_items, "extracted_fields": fields, "special_risks": special_risks}
 
 
-def map_plain_label(label: str) -> str:
+def map_plain_label(label: str, template_id: str | None = None) -> str:
     clean = re.sub(r"\s+", " ", label).strip().lower()
+    if template_id:
+        try:
+            template = configured_template(template_id)
+            contains_candidates: list[tuple[int, str]] = []
+            for field in template.get("fields", []):
+                names = [field.get("display_name", ""), field.get("field_id", ""), *field.get("aliases", [])]
+                for name in names:
+                    alias = re.sub(r"\s+", " ", str(name)).strip().lower()
+                    if alias and clean == alias:
+                        return str(field.get("field_id", ""))
+                    if alias and alias in clean:
+                        contains_candidates.append((len(alias), str(field.get("field_id", ""))))
+            if contains_candidates:
+                contains_candidates.sort(reverse=True)
+                return contains_candidates[0][1]
+        except (FileNotFoundError, KeyError, ValueError):
+            pass
     if clean in PLAIN_LABEL_MAP:
         return PLAIN_LABEL_MAP[clean]
     for key, field in PLAIN_LABEL_MAP.items():
@@ -180,7 +219,7 @@ def is_special_risk(value: str) -> bool:
     return "不可转让" in raw or "not negotiable" in raw or "account payee" in raw or "a/c payee" in raw
 
 
-def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any]) -> dict[str, Any]:
+def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any], allowed_fields: set[str] | None = None) -> dict[str, Any]:
     fields = parsed.get("extracted_fields") or parsed.get("mapped_fields") or parsed.get("fields") or []
     document_items = normalize_document_items(parsed, fields)
     normalized_fields = []
@@ -196,9 +235,12 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
                 "text": evidence.get("text", ""),
                 "region_hint": evidence.get("region_hint", evidence.get("region", "")),
             }
+        normalized_field = field.get("normalized_field") or field.get("field") or ""
+        if allowed_fields is not None and normalized_field not in allowed_fields:
+            continue
         normalized_fields.append(
             {
-                "normalized_field": field.get("normalized_field") or field.get("field") or "",
+                "normalized_field": normalized_field,
                 "raw_label": field.get("raw_label", ""),
                 "raw_value": field.get("raw_value", field.get("value", "")),
                 "confidence": normalize_confidence(field.get("confidence", 0.0)),
@@ -303,11 +345,13 @@ def normalize_special_risk_type(value: Any, text: Any) -> str:
     return str(value or "special_risk")
 
 
-async def extract_with_model(image_base64: str, mime_type: str = "image/png") -> ExtractionResult:
+async def extract_with_model(image_base64: str, mime_type: str = "image/png", template_id: str | None = None) -> ExtractionResult:
+    template = configured_template(template_id)
+    allowed_fields = configured_field_ids(template)
     client = ModelClient(load_local_config().get("model_settings", {}))
-    payload = await client.chat_image(build_extraction_prompt(), image_base64, mime_type)
-    parsed = parse_model_json(payload)
-    extraction = ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload))
+    payload = await client.chat_image(build_extraction_prompt(template_id), image_base64, mime_type)
+    parsed = parse_model_json(payload, template_id)
+    extraction = ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload, allowed_fields))
     if not extraction.extracted_fields:
         raise ValueError("Model returned zero extracted fields. 图片已成功送达模型，但模型没有按结构化要求返回字段，请重试或检查模型输出。")
     return extraction

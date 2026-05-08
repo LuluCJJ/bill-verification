@@ -73,6 +73,7 @@ class ModelImageTestRequest(BaseModel):
     prompt: str
     image_base64: str
     mime_type: str = "image/png"
+    template_id: str | None = None
 
 
 class ModelSettings(BaseModel):
@@ -92,6 +93,16 @@ class ModelDiagnoseRequest(BaseModel):
     include_image: bool = False
     image_base64: str | None = None
     mime_type: str = "image/png"
+
+
+class TemplateFieldConfig(BaseModel):
+    field_id: str
+    source_system_field: str = ""
+    display_name: str = ""
+    business_meaning: str = ""
+    aliases: list[str] = Field(default_factory=list)
+    position_hint: str = ""
+    extraction_hint: str = ""
 
 
 class FeedbackRequest(BaseModel):

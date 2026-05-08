@@ -2,6 +2,7 @@ let selectedSample = null;
 let fieldSchema = {};
 let fieldAliases = {};
 let mappingRules = {};
+let templateAiConfig = { templates: [] };
 let currentLang = "zh";
 let uploadedDocument = null;
 let lastExtraction = null;
@@ -98,6 +99,7 @@ async function init() {
   fieldSchema = await api("/api/config/field_schema.json");
   fieldAliases = await api("/api/config/field_aliases.json");
   mappingRules = await api("/api/config/mapping_rules.json");
+  templateAiConfig = await api("/api/config/template_ai_fields.json");
   await loadModelSettings();
   renderPaymentForm({});
   renderTemplateList();
@@ -174,7 +176,12 @@ async function startPreAudit() {
   ensureModelImageType(image.mimeType);
   const extraction = await api("/api/extract-with-model", {
     method: "POST",
-    body: JSON.stringify({ prompt: "请从票据中提取结构化字段。", image_base64: image.base64, mime_type: image.mimeType }),
+    body: JSON.stringify({
+      prompt: "请按当前模板字段配置从票据中定向提取字段。",
+      image_base64: image.base64,
+      mime_type: image.mimeType,
+      template_id: selectedSample?.template_id || activeTemplateId(),
+    }),
   });
   lastExtraction = extraction;
   renderExtraction(extraction, "真实模型提取结果");
@@ -315,6 +322,7 @@ async function handleFeedbackAction(sampleId, item, button) {
     await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
     fieldAliases = await api("/api/config/field_aliases.json");
     mappingRules = await api("/api/config/mapping_rules.json");
+    templateAiConfig = await api("/api/config/template_ai_fields.json");
     renderTemplateList();
     await renderFeedbackList();
     renderVerifyDemoGuide("已将“入账行”加入收款方银行别名。系统将再次调用真实模型提取并重新核验。");
@@ -368,6 +376,7 @@ async function resetAliasCaseFromVerify() {
   await api("/api/demo/alias-case/reset", { method: "POST", body: "{}" });
   fieldAliases = await api("/api/config/field_aliases.json");
   mappingRules = await api("/api/config/mapping_rules.json");
+  templateAiConfig = await api("/api/config/template_ai_fields.json");
   if (selectedSample?.id === "alias_feedback_case") {
     selectedSample = await api("/api/samples/alias_feedback_case");
     lastExtraction = selectedSample.expected_result;
@@ -384,6 +393,7 @@ async function applyAliasCaseFromVerify() {
   await api("/api/demo/alias-case/apply", { method: "POST", body: "{}" });
   fieldAliases = await api("/api/config/field_aliases.json");
   mappingRules = await api("/api/config/mapping_rules.json");
+  templateAiConfig = await api("/api/config/template_ai_fields.json");
   renderTemplateList();
   await renderFeedbackList();
   renderVerifyDemoGuide("已应用别名，正在再次调用真实模型。");
@@ -394,9 +404,9 @@ async function applyAliasCaseFromVerify() {
 function renderTemplateList() {
   const box = qs("templateList");
   box.innerHTML = "";
-  (mappingRules.template_rules || []).forEach((template, index) => {
+  (templateAiConfig.templates || []).forEach((template, index) => {
     const btn = document.createElement("button");
-    btn.textContent = `${template.country || "GLOBAL"} / ${template.document_type || "document"} / ${template.template_id}`;
+    btn.textContent = `${template.ai_enabled ? "已启用" : "未启用"} / ${template.country || "GLOBAL"} / ${template.template_id}`;
     btn.onclick = () => selectTemplate(index, btn);
     box.appendChild(btn);
   });
@@ -406,55 +416,64 @@ function renderTemplateList() {
 function selectTemplate(index, button) {
   document.querySelectorAll("#templateList button").forEach((x) => x.classList.remove("active"));
   button.classList.add("active");
-  const template = mappingRules.template_rules[index];
-  qs("templateTitle").textContent = `模板调优：${template.template_id}`;
+  const template = templateAiConfig.templates[index];
+  qs("templateTitle").textContent = `模板字段配置：${template.template_id}`;
   renderAiTuningConfig(template);
 }
 
-function renderAiTuningConfig(template = (mappingRules.template_rules || [])[0]) {
+function renderAiTuningConfig(template = (templateAiConfig.templates || [])[0]) {
   const box = qs("aiTuningConfig");
   box.innerHTML = "";
-  for (const group of Object.values(groups)) {
-    const groupBox = document.createElement("section");
-    groupBox.className = "tuning-group";
-    groupBox.innerHTML = `<h3>${group.title}</h3>`;
-    group.fields.forEach((field) => {
-      if (!fieldSchema[field]) return;
-      const card = document.createElement("details");
-      card.className = "tuning-card";
-      card.innerHTML = `
-        <summary>${fieldLabel(field)} <span>${field}</span></summary>
-        <label>票面常见叫法<input data-field="${field}" data-kind="aliases" value="${escapeHtml((fieldAliases[field] || []).join("、"))}" /></label>
-        <label>位置/模板提示<input data-field="${field}" data-kind="hint" value="${escapeHtml(template?.hints?.[field] || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
-        <label>AI 识别要求<input data-field="${field}" data-kind="note" value="${escapeHtml(mappingRules.business_notes?.[field] || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
-      `;
-      groupBox.appendChild(card);
-    });
-    box.appendChild(groupBox);
-  }
+  if (!template) return;
+  const meta = document.createElement("section");
+  meta.className = "tuning-group";
+  meta.innerHTML = `
+    <h3>模板发布状态</h3>
+    <label>AI 启用<select id="templateAiEnabled">${option("true", "启用：正式核验可调用 AI", String(Boolean(template.ai_enabled)))}
+      ${option("false", "停用：正式核验不调用 AI", String(Boolean(template.ai_enabled)))}</select></label>
+    <label>发布状态<select id="templatePublishStatus">${option("published", "已发布", template.status)}${option("sandbox", "沙箱测试", template.status)}${option("draft", "草稿", template.status)}</select></label>
+  `;
+  box.appendChild(meta);
+  (template.fields || []).forEach((field) => {
+    const card = document.createElement("details");
+    card.className = "tuning-card";
+    card.open = field.field_id === "beneficiary_bank";
+    card.innerHTML = `
+      <summary>${escapeHtml(field.display_name || fieldLabel(field.field_id))} <span>${escapeHtml(field.field_id)}</span></summary>
+      <label>系统来源字段<input data-field="${field.field_id}" data-kind="source_system_field" value="${escapeHtml(field.source_system_field || "")}" /></label>
+      <label>业务含义<input data-field="${field.field_id}" data-kind="business_meaning" value="${escapeHtml(field.business_meaning || "")}" /></label>
+      <label>票面可能叫法<input data-field="${field.field_id}" data-kind="aliases" value="${escapeHtml((field.aliases || []).join("、"))}" /></label>
+      <label>位置/模板提示<input data-field="${field.field_id}" data-kind="position_hint" value="${escapeHtml(field.position_hint || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
+      <label>AI 提取要求<input data-field="${field.field_id}" data-kind="extraction_hint" value="${escapeHtml(field.extraction_hint || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
+    `;
+    box.appendChild(card);
+  });
 }
 
 async function saveAiTuning() {
-  const aliases = {};
-  const notes = {};
-  const hints = {};
-  document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
-    const field = input.dataset.field;
-    if (input.dataset.kind === "aliases") aliases[field] = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
-    if (input.dataset.kind === "hint") hints[field] = input.value.trim();
-    if (input.dataset.kind === "note") notes[field] = input.value.trim();
-  });
-  fieldAliases = aliases;
-  mappingRules.business_notes = notes;
-  mappingRules.template_rules = mappingRules.template_rules || [];
   const active = document.querySelector("#templateList button.active");
   const index = [...document.querySelectorAll("#templateList button")].indexOf(active);
-  const targetIndex = index >= 0 ? index : 0;
-  mappingRules.template_rules[targetIndex].hints = { ...(mappingRules.template_rules[targetIndex].hints || {}), ...hints };
-  await api("/api/config/field_aliases.json", { method: "PUT", body: JSON.stringify(fieldAliases) });
-  await api("/api/config/mapping_rules.json", { method: "PUT", body: JSON.stringify(mappingRules) });
+  const template = templateAiConfig.templates[index >= 0 ? index : 0];
+  if (!template) return;
+  template.ai_enabled = qs("templateAiEnabled").value === "true";
+  template.status = qs("templatePublishStatus").value;
+  document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
+    const field = input.dataset.field;
+    const target = (template.fields || []).find((item) => item.field_id === field);
+    if (!target) return;
+    if (input.dataset.kind === "aliases") target.aliases = input.value.split(/[、,，]/).map((x) => x.trim()).filter(Boolean);
+    else target[input.dataset.kind] = input.value.trim();
+  });
+  await api("/api/config/template_ai_fields.json", { method: "PUT", body: JSON.stringify(templateAiConfig) });
   qs("saveAiTuning").textContent = "已保存";
   setTimeout(() => (qs("saveAiTuning").textContent = "保存调优配置"), 1200);
+  renderTemplateList();
+}
+
+function activeTemplateId() {
+  const active = document.querySelector("#templateList button.active");
+  const index = [...document.querySelectorAll("#templateList button")].indexOf(active);
+  return templateAiConfig.templates?.[index]?.template_id || "";
 }
 
 function renderBusinessConfig() {

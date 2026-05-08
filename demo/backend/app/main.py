@@ -12,7 +12,7 @@ from .comparator import verify
 from .extractor import extract_with_model, extraction_from_static
 from .model_client import ModelClient
 from .schemas import CustomVerificationRequest, FeedbackRequest, ModelDiagnoseRequest, ModelImageTestRequest, ModelSettings, ModelTestRequest, ModelTextTestRequest
-from .storage import ROOT, ensure_runtime_dirs, load_config, load_feedback_entries, load_local_config, load_sample, load_samples, save_config, save_feedback, save_local_config
+from .storage import ROOT, ensure_runtime_dirs, load_config, load_feedback_entries, load_local_config, load_sample, load_samples, load_template_ai_config, save_config, save_feedback, save_local_config
 
 
 app = FastAPI(title="Bill Verification Demo", version="0.1.0")
@@ -66,6 +66,13 @@ def verify_custom(payload: CustomVerificationRequest) -> dict:
 def verification_schema(sample_id: str) -> dict:
     schema = load_config("field_schema.json")
     schema = {key: dict(value) for key, value in schema.items()}
+    try:
+        sample = load_sample(sample_id)
+        template = load_template_ai_config(sample.get("template_id"))
+        configured_fields = {field.get("field_id") for field in template.get("fields", []) if field.get("field_id")}
+        schema = {key: value for key, value in schema.items() if key in configured_fields}
+    except (KeyError, FileNotFoundError):
+        pass
     if sample_id == "alias_feedback_case":
         schema["beneficiary_bank"]["document_presence"] = "required"
     return schema
@@ -73,14 +80,14 @@ def verification_schema(sample_id: str) -> dict:
 
 @app.get("/api/config/{name}")
 def get_config(name: str):
-    if name not in {"field_schema.json", "field_aliases.json", "mapping_rules.json"}:
+    if name not in {"field_schema.json", "field_aliases.json", "mapping_rules.json", "template_ai_fields.json"}:
         raise HTTPException(status_code=400, detail="Unsupported config file.")
     return load_config(name)
 
 
 @app.put("/api/config/{name}")
 def put_config(name: str, payload: dict):
-    if name not in {"field_schema.json", "field_aliases.json", "mapping_rules.json"}:
+    if name not in {"field_schema.json", "field_aliases.json", "mapping_rules.json", "template_ai_fields.json"}:
         raise HTTPException(status_code=400, detail="Unsupported config file.")
     save_config(name, payload)
     return {"status": "saved", "name": name}
@@ -112,7 +119,7 @@ ALIAS_DEMO_TEXT = """- 收款人：上海星河供应链有限公司
 def _alias_case_parse() -> dict:
     from .extractor import parse_plain_text_extraction
 
-    parsed = parse_plain_text_extraction(ALIAS_DEMO_TEXT)
+    parsed = parse_plain_text_extraction(ALIAS_DEMO_TEXT, "cn_check_standard")
     extraction = extraction_from_static(
         {
             "sample_id": "alias_feedback_case",
@@ -142,6 +149,7 @@ def _alias_case_parse() -> dict:
         "target_alias": "入账行",
         "target_value": "中国工商银行上海分行",
         "aliases": load_config("field_aliases.json").get("beneficiary_bank", []),
+        "template_aliases": _template_field_aliases("cn_check_standard", "beneficiary_bank"),
         "extraction": extraction.model_dump(),
         "verification": result.model_dump(),
     }
@@ -154,18 +162,17 @@ def alias_case() -> dict:
 
 @app.post("/api/demo/alias-case/apply")
 def apply_alias_case() -> dict:
-    aliases = load_config("field_aliases.json")
-    names = aliases.setdefault("beneficiary_bank", [])
-    if "入账行" not in names:
-        names.append("入账行")
-    save_config("field_aliases.json", aliases)
-
-    rules = load_config("mapping_rules.json")
-    for rule in rules.get("template_rules", []):
-        if rule.get("template_id") == "cn_check_standard":
-            hints = rule.setdefault("hints", {})
-            hints["beneficiary_bank"] = "票面可能写作“入账行”，表示收款方开户行/收款方银行"
-    save_config("mapping_rules.json", rules)
+    config = load_config("template_ai_fields.json")
+    for template in config.get("templates", []):
+        if template.get("template_id") != "cn_check_standard":
+            continue
+        for field in template.get("fields", []):
+            if field.get("field_id") == "beneficiary_bank":
+                names = field.setdefault("aliases", [])
+                if "入账行" not in names:
+                    names.append("入账行")
+                field["extraction_hint"] = "只提取银行名称，不要把账号、地址、SWIFT 合并进来；本模板中“入账行”表示收款方银行。"
+    save_config("template_ai_fields.json", config)
 
     save_feedback(
         {
@@ -173,7 +180,7 @@ def apply_alias_case() -> dict:
             "field": "beneficiary_bank",
             "action": "submit_optimization",
             "corrected_value": "中国工商银行上海分行",
-            "note": "将票面别名“入账行”加入 beneficiary_bank，用于演示反馈驱动的模板调优闭环。",
+            "note": "将票面别名“入账行”加入 cn_check_standard 模板下的 beneficiary_bank，用于演示反馈驱动的模板调优闭环。",
         }
     )
     return _alias_case_parse()
@@ -181,19 +188,27 @@ def apply_alias_case() -> dict:
 
 @app.post("/api/demo/alias-case/reset")
 def reset_alias_case() -> dict:
-    aliases = load_config("field_aliases.json")
-    names = aliases.get("beneficiary_bank", [])
-    aliases["beneficiary_bank"] = [name for name in names if name != "入账行"]
-    save_config("field_aliases.json", aliases)
-
-    rules = load_config("mapping_rules.json")
-    for rule in rules.get("template_rules", []):
-        if rule.get("template_id") == "cn_check_standard":
-            hints = rule.setdefault("hints", {})
-            if hints.get("beneficiary_bank") == "票面可能写作“入账行”，表示收款方开户行/收款方银行":
-                hints.pop("beneficiary_bank", None)
-    save_config("mapping_rules.json", rules)
+    config = load_config("template_ai_fields.json")
+    for template in config.get("templates", []):
+        if template.get("template_id") != "cn_check_standard":
+            continue
+        for field in template.get("fields", []):
+            if field.get("field_id") == "beneficiary_bank":
+                field["aliases"] = [name for name in field.get("aliases", []) if name != "入账行"]
+                field["extraction_hint"] = "只提取银行名称，不要把账号、地址、SWIFT 合并进来。"
+    save_config("template_ai_fields.json", config)
     return _alias_case_parse()
+
+
+def _template_field_aliases(template_id: str, field_id: str) -> list[str]:
+    try:
+        template = load_template_ai_config(template_id)
+    except KeyError:
+        return []
+    for field in template.get("fields", []):
+        if field.get("field_id") == field_id:
+            return field.get("aliases", [])
+    return []
 
 
 @app.post("/api/model/test-text")
@@ -399,7 +414,7 @@ async def diagnose_model(payload: ModelDiagnoseRequest) -> dict:
 @app.post("/api/extract-with-model")
 async def extract_model(payload: ModelImageTestRequest):
     try:
-        extraction = await extract_with_model(payload.image_base64, payload.mime_type)
+        extraction = await extract_with_model(payload.image_base64, payload.mime_type, payload.template_id)
         return extraction.model_dump()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

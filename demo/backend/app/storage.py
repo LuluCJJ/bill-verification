@@ -48,6 +48,16 @@ def load_config(name: str) -> Any:
     return read_json(CONFIG_DIR / name)
 
 
+def load_template_ai_config(template_id: str | None) -> dict[str, Any]:
+    if not template_id:
+        raise KeyError("No template_id provided. AI pre-audit requires a published template field configuration.")
+    payload = load_config("template_ai_fields.json")
+    for template in payload.get("templates", []):
+        if template.get("template_id") == template_id:
+            return template
+    raise KeyError(f"Template AI field configuration not found: {template_id}")
+
+
 def save_config(name: str, data: Any) -> None:
     write_json(CONFIG_DIR / name, data)
 

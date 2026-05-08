@@ -1,9 +1,9 @@
 {
   "strategy": {
-    "ai_semantic_weight": 0.6,
-    "alias_weight": 0.2,
-    "template_rule_weight": 0.2,
-    "final_compare_owner": "MAP"
+    "extraction_mode": "template_config_driven",
+    "final_compare_owner": "transaction_system",
+    "compare_rule_delivery": "function_package",
+    "note": "AI only extracts configured template fields. Date conversion, amount in words conversion, account normalization and other comparison logic are owned by the transaction system/MAP function package."
   },
   "template_rules": [
     {
