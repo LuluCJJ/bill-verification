@@ -1,0 +1,13 @@
+{
+  "pptx": "D:\\AI\\project\\bill_verification\\docs\\business-overview-deck\\output\\bill_verification_business_overview_editable.pptx",
+  "editable": true,
+  "fallback_images": 0,
+  "note": "All visible slide content is built from native PowerPoint text boxes, shapes, lines, and editable table-like cell groups. No full-slide image fallback is used.",
+  "counts": {
+    "slides": 8,
+    "text_boxes": 392,
+    "shapes": 16,
+    "tables": 0,
+    "pictures": 0
+  }
+}
