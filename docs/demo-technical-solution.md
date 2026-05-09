@@ -161,9 +161,17 @@ Demo 阶段可以先用本地文件或 SQLite：
 + 字段系统来源、业务含义、别名、位置提示、提取要求
 → 多模态模型定向提取
 → 输出 document_items / extracted_fields / special_risks
+→ 后端按当前模板别名补充 mapped_field / extracted_fields
+→ 交易系统/MAP 函数包核验
 ```
 
 这使模型任务从“全局理解票据”收窄为“在业务指定字段范围内找值”，更适合上线。
+
+当前实现中，字段别名不是只拼进 Prompt。后端会在模型返回后再次读取当前模板配置，对 `document_items.raw_key` 做确定性补映射：
+
+- 如果 raw key 命中当前模板字段别名，则补充 `mapped_field`、`mapped_display_name`、`source_system_field`、`mapping_source=template_alias_rule`。
+- 如果模型没有返回对应的 `extracted_fields`，但 `document_items` 已经命中别名，后端会补出一条结构化字段，供后续规则核验使用。
+- 业务含义、位置提示和提取要求主要进入 Prompt，不直接作为宽泛匹配规则，避免配置描述被过度泛化。
 
 ### 5.0.1 配置沙箱
 
@@ -206,6 +214,11 @@ Demo 阶段可以先用本地文件或 SQLite：
     {
       "raw_key": "Account With Institution",
       "raw_value": "HSBC London Branch",
+      "mapped_field": "beneficiary_bank",
+      "mapped_display_name": "收款方银行",
+      "source_system_field": "MAP付款指令.收款方银行",
+      "mapping_source": "template_alias_rule",
+      "mapping_confidence": 0.8,
       "evidence": {
         "page": 1,
         "text": "Account With Institution: HSBC London Branch",
@@ -218,6 +231,8 @@ Demo 阶段可以先用本地文件或 SQLite：
       "raw_label": "Beneficiary",
       "raw_value": "Global Supplier Limited",
       "normalized_field": "beneficiary_name",
+      "display_name": "收款方名称",
+      "source_system_field": "MAP付款指令.收款方名称",
       "mapping_source": "ai",
       "confidence": 0.93,
       "evidence": {
@@ -247,7 +262,8 @@ Prompt 应强调：
 
 - 只提取票面能看到的信息，不要补全或猜测。
 - 原始 Key/Value 放入 `document_items`，尽量逐字照抄。
-- 映射结果放入 `extracted_fields`，保留 `raw_label`、`raw_value`、`normalized_field` 和 `mapping_source`。
+- 如果能判断原文对应哪个模板字段，在 `document_items` 中同时填写 `mapped_field`。
+- 映射结果放入 `extracted_fields`，保留 `raw_label`、`raw_value`、`normalized_field`、`display_name`、`source_system_field` 和 `mapping_source`。
 - 不确定时输出候选值和低置信度。
 - 保留原文片段。
 - 输出标准 JSON。
