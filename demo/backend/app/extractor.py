@@ -13,7 +13,7 @@ EXTRACTION_PROMPT = """
 要求：
 1. 只围绕“当前模板已配置字段清单”提取，不要新增未配置字段。
 2. 只提取票面可见信息，不要补全、改写、翻译或标准化票面文字。
-3. document_items 保存票面原始 Key/Value，raw_key 和 raw_value 必须尽量逐字照抄票面。
+3. document_items 保存票面原始 Key/Value，raw_key 和 raw_value 必须尽量逐字照抄票面；如果能判断它对应哪个配置字段，同时填写 mapped_field。
 4. extracted_fields 保存定向提取结果：raw_label/raw_value 仍然照抄票面，normalized_field 必须来自已配置字段 field_id。
 5. 如果某个配置字段在票面中找不到，不要编造值；可以不返回该字段，后续系统会按规则判断缺失。
 6. 如果不确定，保留低置信度候选，并在 mapping_source 写 "ai_uncertain"。
@@ -25,8 +25,8 @@ JSON 格式示例：
 {{
   "document_type": "check",
   "document_items": [
-    {{"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}},
-    {{"raw_key": "收款银行", "raw_value": "中国工商银行上海分行", "evidence": {{"page": 1, "text": "收款银行：中国工商银行上海分行", "region_hint": ""}}}}
+    {{"raw_key": "收款人", "raw_value": "上海星河供应链有限公司", "mapped_field": "beneficiary_name", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}},
+    {{"raw_key": "收款银行", "raw_value": "中国工商银行上海分行", "mapped_field": "beneficiary_bank", "evidence": {{"page": 1, "text": "收款银行：中国工商银行上海分行", "region_hint": ""}}}}
   ],
   "extracted_fields": [
     {{"normalized_field": "beneficiary_name", "raw_label": "收款人", "raw_value": "上海星河供应链有限公司", "confidence": 0.9, "mapping_source": "ai", "evidence": {{"page": 1, "text": "收款人：上海星河供应链有限公司", "region_hint": ""}}}}
@@ -52,6 +52,19 @@ def configured_template(template_id: str | None) -> dict[str, Any]:
 
 def configured_field_ids(template: dict[str, Any]) -> set[str]:
     return {str(field.get("field_id")) for field in template.get("fields", []) if field.get("field_id")}
+
+
+def configured_field_meta(template_id: str | None, field_id: str) -> dict[str, Any]:
+    if not template_id or not field_id:
+        return {}
+    try:
+        template = configured_template(template_id)
+    except (FileNotFoundError, KeyError, ValueError):
+        return {}
+    for field in template.get("fields", []):
+        if field.get("field_id") == field_id:
+            return field
+    return {}
 
 
 def build_extraction_prompt(template_id: str | None) -> str:
@@ -219,9 +232,9 @@ def is_special_risk(value: str) -> bool:
     return "不可转让" in raw or "not negotiable" in raw or "account payee" in raw or "a/c payee" in raw
 
 
-def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any], allowed_fields: set[str] | None = None) -> dict[str, Any]:
+def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, Any], allowed_fields: set[str] | None = None, template_id: str | None = None) -> dict[str, Any]:
     fields = parsed.get("extracted_fields") or parsed.get("mapped_fields") or parsed.get("fields") or []
-    document_items = normalize_document_items(parsed, fields)
+    document_items = normalize_document_items(parsed, fields, template_id, allowed_fields)
     normalized_fields = []
     for field in fields:
         if not isinstance(field, dict):
@@ -235,19 +248,50 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
                 "text": evidence.get("text", ""),
                 "region_hint": evidence.get("region_hint", evidence.get("region", "")),
             }
+        raw_label = field.get("raw_label", field.get("raw_key", ""))
         normalized_field = field.get("normalized_field") or field.get("field") or ""
+        mapped_by_rule = map_plain_label(raw_label, template_id) if template_id else ""
+        if allowed_fields is not None and normalized_field not in allowed_fields and mapped_by_rule in allowed_fields:
+            normalized_field = mapped_by_rule
         if allowed_fields is not None and normalized_field not in allowed_fields:
             continue
+        meta = configured_field_meta(template_id, normalized_field)
+        mapping_source = field.get("mapping_source", "ai")
+        if mapped_by_rule and mapped_by_rule == normalized_field and mapping_source == "ai" and field.get("normalized_field") != mapped_by_rule:
+            mapping_source = "template_alias_rule"
         normalized_fields.append(
             {
                 "normalized_field": normalized_field,
-                "raw_label": field.get("raw_label", ""),
+                "raw_label": raw_label,
                 "raw_value": field.get("raw_value", field.get("value", "")),
                 "confidence": normalize_confidence(field.get("confidence", 0.0)),
                 "evidence": evidence,
-                "mapping_source": field.get("mapping_source", "ai"),
+                "mapping_source": mapping_source,
+                "display_name": meta.get("display_name", ""),
+                "source_system_field": meta.get("source_system_field", ""),
             }
         )
+
+    existing_fields = {field["normalized_field"] for field in normalized_fields}
+    for item in document_items:
+        mapped_field = item.get("mapped_field", "")
+        if not mapped_field or mapped_field in existing_fields:
+            continue
+        if allowed_fields is not None and mapped_field not in allowed_fields:
+            continue
+        normalized_fields.append(
+            {
+                "normalized_field": mapped_field,
+                "raw_label": item.get("raw_key", ""),
+                "raw_value": item.get("raw_value", ""),
+                "confidence": item.get("mapping_confidence", 0.78),
+                "evidence": item.get("evidence", {}),
+                "mapping_source": item.get("mapping_source", "template_alias_rule"),
+                "display_name": item.get("mapped_display_name", ""),
+                "source_system_field": item.get("source_system_field", ""),
+            }
+        )
+        existing_fields.add(mapped_field)
 
     special_risks = []
     for risk in parsed.get("special_risks", []):
@@ -277,7 +321,7 @@ def normalize_extraction_payload(parsed: dict[str, Any], raw_payload: dict[str, 
     }
 
 
-def normalize_document_items(parsed: dict[str, Any], fields: list[Any]) -> list[dict[str, Any]]:
+def normalize_document_items(parsed: dict[str, Any], fields: list[Any], template_id: str | None = None, allowed_fields: set[str] | None = None) -> list[dict[str, Any]]:
     raw_items = parsed.get("document_items") or parsed.get("raw_items") or []
     items = []
     for item in raw_items:
@@ -286,15 +330,26 @@ def normalize_document_items(parsed: dict[str, Any], fields: list[Any]) -> list[
         evidence = item.get("evidence") or {}
         if isinstance(evidence, str):
             evidence = {"page": 1, "text": evidence, "region_hint": ""}
+        raw_key = item.get("raw_key", item.get("key", item.get("label", "")))
+        mapped_field = item.get("mapped_field", item.get("normalized_field", ""))
+        mapped_by_rule = map_plain_label(raw_key, template_id) if template_id else ""
+        if allowed_fields is not None and mapped_field not in allowed_fields and mapped_by_rule in allowed_fields:
+            mapped_field = mapped_by_rule
+        meta = configured_field_meta(template_id, mapped_field)
         items.append(
             {
-                "raw_key": item.get("raw_key", item.get("key", item.get("label", ""))),
+                "raw_key": raw_key,
                 "raw_value": item.get("raw_value", item.get("value", "")),
                 "evidence": {
                     "page": evidence.get("page", 1),
                     "text": evidence.get("text", ""),
                     "region_hint": evidence.get("region_hint", evidence.get("region", "")),
                 },
+                "mapped_field": mapped_field if allowed_fields is None or mapped_field in allowed_fields else "",
+                "mapped_display_name": meta.get("display_name", ""),
+                "source_system_field": meta.get("source_system_field", ""),
+                "mapping_source": "template_alias_rule" if mapped_by_rule and mapped_by_rule == mapped_field else item.get("mapping_source", "ai"),
+                "mapping_confidence": 0.8 if mapped_by_rule and mapped_by_rule == mapped_field else normalize_confidence(item.get("confidence", 0.0)),
             }
         )
     if items:
@@ -308,6 +363,8 @@ def normalize_document_items(parsed: dict[str, Any], fields: list[Any]) -> list[
         if isinstance(evidence, str):
             evidence = {"page": 1, "text": evidence, "region_hint": ""}
         if label or value:
+            mapped_field = map_plain_label(label, template_id) if template_id else ""
+            meta = configured_field_meta(template_id, mapped_field)
             items.append(
                 {
                     "raw_key": label,
@@ -317,6 +374,11 @@ def normalize_document_items(parsed: dict[str, Any], fields: list[Any]) -> list[
                         "text": evidence.get("text", ""),
                         "region_hint": evidence.get("region_hint", evidence.get("region", "")),
                     },
+                    "mapped_field": mapped_field if allowed_fields is None or mapped_field in allowed_fields else "",
+                    "mapped_display_name": meta.get("display_name", ""),
+                    "source_system_field": meta.get("source_system_field", ""),
+                    "mapping_source": "template_alias_rule" if mapped_field else "",
+                    "mapping_confidence": 0.8 if mapped_field else 0.0,
                 }
             )
     return items
@@ -351,7 +413,7 @@ async def extract_with_model(image_base64: str, mime_type: str = "image/png", te
     client = ModelClient(load_local_config().get("model_settings", {}))
     payload = await client.chat_image(build_extraction_prompt(template_id), image_base64, mime_type)
     parsed = parse_model_json(payload, template_id)
-    extraction = ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload, allowed_fields))
+    extraction = ExtractionResult.model_validate(normalize_extraction_payload(parsed, payload, allowed_fields, template_id))
     if not extraction.extracted_fields:
         raise ValueError("Model returned zero extracted fields. 图片已成功送达模型，但模型没有按结构化要求返回字段，请重试或检查模型输出。")
     return extraction

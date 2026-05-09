@@ -20,6 +20,8 @@ class ExtractedField(BaseModel):
     confidence: float = 0.0
     evidence: Evidence = Field(default_factory=Evidence)
     mapping_source: str = "ai"
+    display_name: str = ""
+    source_system_field: str = ""
 
 
 class SpecialRisk(BaseModel):
@@ -33,6 +35,11 @@ class DocumentItem(BaseModel):
     raw_key: str = ""
     raw_value: str = ""
     evidence: Evidence = Field(default_factory=Evidence)
+    mapped_field: str = ""
+    mapped_display_name: str = ""
+    source_system_field: str = ""
+    mapping_source: str = ""
+    mapping_confidence: float = 0.0
 
 
 class ExtractionResult(BaseModel):

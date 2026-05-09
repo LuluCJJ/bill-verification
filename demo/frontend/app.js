@@ -335,7 +335,12 @@ function renderExtraction(extraction, sourceLabel) {
     documentItems.forEach((item) => {
       const row = document.createElement("div");
       row.className = "raw-item-row";
-      row.innerHTML = `<b>${escapeHtml(item.raw_key || "未命名字段")}</b><span>${escapeHtml(item.raw_value || "-")}</span><small>${escapeHtml(item.evidence?.text || "-")}</small>`;
+      row.innerHTML = `
+        <b>${escapeHtml(item.raw_key || "未命名字段")}</b>
+        <span>${escapeHtml(item.raw_value || "-")}</span>
+        <small>映射字段：${escapeHtml(item.mapped_display_name || item.mapped_field || "未映射")} ${item.source_system_field ? `· ${escapeHtml(item.source_system_field)}` : ""}</small>
+        <small>证据：${escapeHtml(item.evidence?.text || "-")}</small>
+      `;
       details.appendChild(row);
     });
     qs("extractionSummary").appendChild(details);
