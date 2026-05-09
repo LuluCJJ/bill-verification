@@ -323,7 +323,8 @@ function renderExtraction(extraction, sourceLabel) {
       </div>
       <span>${field ? escapeHtml(field.raw_value) : "AI 未在票面中识别到该系统字段"}</span>
       <small>系统字段：${escapeHtml(templateField.source_system_field || templateField.field_id)}</small>
-      <small>票面标签：${field ? escapeHtml(field.raw_label || "-") : escapeHtml((templateField.aliases || []).join("、") || "-")}</small>
+      <small>票面标签：${field ? escapeHtml(field.raw_label || "-") : "未识别到真实票面标签"}</small>
+      ${field ? "" : `<small>配置叫法：${escapeHtml((templateField.aliases || []).join("、") || "未配置")}</small>`}
       <small>证据：${field ? escapeHtml(field.evidence?.text || "-") : "无"}</small>
     `;
     qs("extractionSummary").appendChild(chip);
@@ -379,6 +380,7 @@ function renderResultItems() {
 function renderItem(sampleId, item) {
   const div = document.createElement("div");
   const css = item.status === "match" ? "match" : item.risk_level;
+  const templateField = configuredTemplateFields().find((field) => field.field_id === item.field) || {};
   div.className = `result-card ${css}`;
   div.innerHTML = `
     <div class="result-head">
@@ -390,6 +392,15 @@ function renderItem(sampleId, item) {
       <div class="${item.status === "mismatch" ? "attention-value" : ""}"><b>票面值</b><p>${empty(item.document_value)}</p></div>
     </div>
     <div class="meta">${item.message}</div>
+    <details class="risk-config" ${item.status !== "match" ? "open" : ""}>
+      <summary>查看本字段配置摘要</summary>
+      <div class="risk-config-grid">
+        <div><b>系统字段</b><p>${escapeHtml(templateField.source_system_field || item.field)}</p></div>
+        <div><b>票面可能叫法</b><p>${escapeHtml((templateField.aliases || []).join("、") || "未配置")}</p></div>
+        <div><b>业务含义</b><p>${escapeHtml(templateField.business_meaning || "-")}</p></div>
+        <div><b>提取要求</b><p>${escapeHtml(templateField.extraction_hint || "-")}</p></div>
+      </div>
+    </details>
     <div class="meta">证据：${item.evidence.text || "-"} (${item.evidence.region_hint || "-"}) · 置信度 ${Math.round((item.confidence || 0) * 100)}%</div>
     <div class="feedback">
       ${feedbackButton("confirm_match", "确认一致")}

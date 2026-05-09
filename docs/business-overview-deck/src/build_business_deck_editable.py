@@ -130,7 +130,7 @@ def add_conclusion(slide, text: str):
 
 
 def add_footer(slide, index: int):
-    add_text(slide, f"Bill Verification AI Pre-audit | {index}/8", 0.55, 8.72, 4.3, 0.22, 8.5, "8A96A3")
+    add_text(slide, f"Bill Verification AI Pre-audit | {index}/9", 0.55, 8.72, 4.3, 0.22, 8.5, "8A96A3")
 
 
 def add_table(
@@ -259,6 +259,31 @@ def s3(prs):
 
 def s4(prs):
     slide = blank_slide(prs)
+    add_header(slide, "完整作业流按输入输出拆清楚", "每个环节都要明确输入、处理、输出和责任系统，避免把模型提取、字段映射和最终核验混成一个黑盒。")
+    add_table(
+        slide,
+        [
+            ["环节", "输入", "处理动作", "输出", "责任边界"],
+            ["1. 模板选择", "付款任务、银行、国家、单据类型", "系统带出或人工选择模板", "template_id、待检查字段清单", "MAP/AP 或交易系统"],
+            ["2. 字段配置", "模板字段、系统来源、别名、含义、位置提示", "发布模板字段配置", "可调用 AI 的字段清单", "业务配置 + MAP 管控"],
+            ["3. AI 预审", "票面图片、template_id、字段清单", "模型定向提取票面信息", "document_items / extracted_fields", "AI 产品"],
+            ["4. 补映射", "document_items、模板别名", "raw_key 命中别名时补字段映射", "mapped_field、mapping_source", "AI 后端规则"],
+            ["5. 函数包核验", "系统支付指令、标准字段、票面值", "金额、日期、账号、名称等规则比对", "风险项、通过项、证据", "MAP/交易系统"],
+            ["6. 人工反馈", "风险项、证据、字段配置", "确认、忽略、纠错、提交优化", "反馈样本、别名或提示建议", "权签人 + 运营"],
+        ],
+        0.45,
+        2.15,
+        [1.65, 2.9, 3.15, 3.0, 2.6],
+        0.66,
+        8.5,
+        9.5,
+    )
+    add_conclusion(slide, "产品上要把 AI 输出看成中间证据，不是最终判断；最终权签核验结果应由系统规则和人工确认共同闭环。")
+    add_footer(slide, 4)
+
+
+def s5(prs):
+    slide = blank_slide(prs)
     add_header(slide, "核验页从“选择模板”开始逐字段输出预审结果", "权签人进入页面先看到模板字段清单，AI 预审后每个待检查系统字段都有提取结果或风险提示。")
     add_flow(
         slide,
@@ -288,10 +313,10 @@ def s4(prs):
         10.0,
     )
     add_conclusion(slide, "业务用户看到的是逐字段风险闭环，产品侧沉淀的是模板字段、别名规则和可复用反馈样本。")
-    add_footer(slide, 4)
+    add_footer(slide, 5)
 
 
-def s5(prs):
+def s6(prs):
     slide = blank_slide(prs)
     add_header(slide, "别名配置采用“Prompt 辅助 + 后端补映射”双通道生效", "业务改一个字段叫法后，既能帮助模型理解票面，也能让后端在模型漏映射时确定性补齐字段。")
     add_table(
@@ -310,10 +335,10 @@ def s5(prs):
         9.4,
     )
     add_conclusion(slide, "配置体系不再只是“把词塞进 Prompt”，而是让业务配置同时约束模型输入和系统后处理。")
-    add_footer(slide, 5)
+    add_footer(slide, 6)
 
 
-def s6(prs):
+def s7(prs):
     slide = blank_slide(prs)
     add_header(slide, "将高频动作拆分为四类页面，降低业务理解成本", "模型配置、付款核验、模板调优和反馈样本应分工明确，避免把一次性设置和日常核验混在同一工作台。")
     add_table(
@@ -332,10 +357,10 @@ def s6(prs):
         9.0,
     )
     add_conclusion(slide, "面向演示时应突出付款核验主流程，模板调优和系统设置作为支撑能力放在后面说明。")
-    add_footer(slide, 6)
+    add_footer(slide, 7)
 
 
-def s7(prs):
+def s8(prs):
     slide = blank_slide(prs)
     add_header(slide, "沉淀可修改测试资产，支撑业务持续验证配置能力", "真实票据敏感不可外传，因此需要用可编辑 Word 和合成截图构建可复用、可扩展的测试样本体系。")
     add_table(
@@ -356,10 +381,10 @@ def s7(prs):
     add_rect(slide, 0.95, 7.18, 13.8, 0.36, LIGHT_BLUE, LINE, 1)
     add_text(slide, "建议指标位：样例覆盖数、字段覆盖率、模板覆盖率、反馈闭环率、模型结构化成功率。", 1.1, 7.25, 13.1, 0.24, 11.5, BLUE_DARK, True)
     add_conclusion(slide, "测试资产需要像规则一样持续沉淀，后续才能支撑不同银行模板和不同语言场景的能力评估。")
-    add_footer(slide, 7)
+    add_footer(slide, 8)
 
 
-def s8(prs):
+def s9(prs):
     slide = blank_slide(prs)
     add_header(slide, "以 MVP 验证带动模板运营和规模化推广", "当前 Demo 已验证模板选择、真实模型提取、别名补映射、风险核验和反馈闭环，下一步应接入 MAP 配置与函数包。")
     add_table(
@@ -378,7 +403,7 @@ def s8(prs):
         9.4,
     )
     add_conclusion(slide, "后续重点不是单次模型效果展示，而是形成“模板资产 + 规则资产 + 反馈样本 + 效果指标”的持续运营机制。")
-    add_footer(slide, 8)
+    add_footer(slide, 9)
 
 
 def count_shapes(prs: Presentation) -> dict[str, int]:
@@ -401,7 +426,7 @@ def main():
     prs.slide_width = Inches(W)
     prs.slide_height = Inches(H)
 
-    for builder in (s1, s2, s3, s4, s5, s6, s7, s8):
+    for builder in (s1, s2, s3, s4, s5, s6, s7, s8, s9):
         builder(prs)
 
     prs.save(PPTX_PATH)

@@ -4,9 +4,9 @@
   "fallback_images": 0,
   "note": "All visible slide content is built from native PowerPoint text boxes, shapes, lines, and editable table-like cell groups. No full-slide image fallback is used.",
   "counts": {
-    "slides": 8,
-    "text_boxes": 392,
-    "shapes": 16,
+    "slides": 9,
+    "text_boxes": 470,
+    "shapes": 17,
     "tables": 0,
     "pictures": 0
   }

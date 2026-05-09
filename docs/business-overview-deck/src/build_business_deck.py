@@ -101,7 +101,7 @@ def conclusion(draw, text):
 
 
 def footer(draw, idx):
-    draw_text(draw, (70, 862), f"Bill Verification AI Pre-audit | {idx}/8", 17, "#8A96A3")
+    draw_text(draw, (70, 862), f"Bill Verification AI Pre-audit | {idx}/9", 17, "#8A96A3")
 
 
 def save_slide(img, idx):
@@ -201,6 +201,26 @@ def s3():
 def s4():
     img = canvas()
     d = ImageDraw.Draw(img)
+    header(d, "完整作业流按输入输出拆清楚", "每个环节都要明确输入、处理、输出和责任系统，避免把模型提取、字段映射和最终核验混成一个黑盒。")
+
+    rows = [
+        ["环节", "输入", "处理动作", "输出", "责任边界"],
+        ["1. 模板选择", "付款任务、银行、国家、单据类型", "系统带出或人工选择模板", "template_id、待检查字段清单", "MAP/AP 或交易系统"],
+        ["2. 字段配置", "模板字段、系统来源、别名、含义、位置提示", "发布模板字段配置", "可调用 AI 的字段清单", "业务配置 + MAP 管控"],
+        ["3. AI 预审", "票面图片、template_id、字段清单", "模型定向提取票面信息", "document_items / extracted_fields", "AI 产品"],
+        ["4. 补映射", "document_items、模板别名", "raw_key 命中别名时补字段映射", "mapped_field、mapping_source", "AI 后端规则"],
+        ["5. 函数包核验", "系统支付指令、标准字段、票面值", "金额、日期、账号、名称等规则比对", "风险项、通过项、证据", "MAP/交易系统"],
+        ["6. 人工反馈", "风险项、证据、字段配置", "确认、忽略、纠错、提交优化", "反馈样本、别名或提示建议", "权签人 + 运营"],
+    ]
+    table(d, 55, 215, [190, 315, 330, 315, 285], [54, 78, 78, 78, 78, 78, 78], rows)
+    conclusion(d, "产品上要把 AI 输出看成中间证据，不是最终判断；最终权签核验结果应由系统规则和人工确认共同闭环。")
+    footer(d, 4)
+    return img
+
+
+def s5():
+    img = canvas()
+    d = ImageDraw.Draw(img)
     header(d, "核验页从“选择模板”开始逐字段输出预审结果", "权签人进入页面先看到模板字段清单，AI 预审后每个待检查系统字段都有提取结果或风险提示。")
 
     y = 260
@@ -227,11 +247,11 @@ def s4():
     ]
     table(d, 140, 540, [270, 520, 340, 300], [54, 96], rows)
     conclusion(d, "业务用户看到的是逐字段风险闭环，产品侧沉淀的是模板字段、别名规则和可复用反馈样本。")
-    footer(d, 4)
+    footer(d, 5)
     return img
 
 
-def s5():
+def s6():
     img = canvas()
     d = ImageDraw.Draw(img)
     header(d, "别名配置采用“Prompt 辅助 + 后端补映射”双通道生效", "业务改一个字段叫法后，既能帮助模型理解票面，也能让后端在模型漏映射时确定性补齐字段。")
@@ -245,11 +265,11 @@ def s5():
     ]
     table(d, 60, 220, [190, 420, 430, 410], [58, 95, 95, 95, 95], rows)
     conclusion(d, "配置体系不再只是“把词塞进 Prompt”，而是让业务配置同时约束模型输入和系统后处理。")
-    footer(d, 5)
+    footer(d, 6)
     return img
 
 
-def s6():
+def s7():
     img = canvas()
     d = ImageDraw.Draw(img)
     header(d, "将高频动作拆分为四类页面，降低业务理解成本", "模型配置、付款核验、模板调优和反馈样本应分工明确，避免把一次性设置和日常核验混在同一工作台。")
@@ -263,11 +283,11 @@ def s6():
     ]
     table(d, 55, 218, [190, 180, 430, 390, 260], [58, 100, 100, 100, 100], rows)
     conclusion(d, "面向演示时应突出付款核验主流程，模板调优和系统设置作为支撑能力放在后面说明。")
-    footer(d, 6)
+    footer(d, 7)
     return img
 
 
-def s7():
+def s8():
     img = canvas()
     d = ImageDraw.Draw(img)
     header(d, "沉淀可修改测试资产，支撑业务持续验证配置能力", "真实票据敏感不可外传，因此需要用可编辑 Word 和合成截图构建可复用、可扩展的测试样本体系。")
@@ -283,11 +303,11 @@ def s7():
     d.rectangle((120, 700, 1480, 748), fill=LIGHT_BLUE, outline=LINE)
     draw_text(d, (145, 711), "建议指标位：样例覆盖数、字段覆盖率、模板覆盖率、反馈闭环率、模型结构化成功率。", 24, BLUE_DARK, True, 1300)
     conclusion(d, "测试资产需要像规则一样持续沉淀，后续才能支撑不同银行模板和不同语言场景的能力评估。")
-    footer(d, 7)
+    footer(d, 8)
     return img
 
 
-def s8():
+def s9():
     img = canvas()
     d = ImageDraw.Draw(img)
     header(d, "以 MVP 验证带动模板运营和规模化推广", "当前 Demo 已验证模板选择、真实模型提取、别名补映射、风险核验和反馈闭环，下一步应接入 MAP 配置与函数包。")
@@ -301,11 +321,11 @@ def s8():
     ]
     table(d, 65, 220, [230, 390, 540, 290], [58, 102, 102, 102, 102], rows)
     conclusion(d, "后续重点不是单次模型效果展示，而是形成“模板资产 + 规则资产 + 反馈样本 + 效果指标”的持续运营机制。")
-    footer(d, 8)
+    footer(d, 9)
     return img
 
 
-slides = [s1(), s2(), s3(), s4(), s5(), s6(), s7(), s8()]
+slides = [s1(), s2(), s3(), s4(), s5(), s6(), s7(), s8(), s9()]
 preview_paths = [save_slide(img, i + 1) for i, img in enumerate(slides)]
 
 
@@ -333,7 +353,8 @@ for idx, png in enumerate(preview_paths, start=1):
 pptx_path = OUT / "bill_verification_business_overview.pptx"
 prs.save(pptx_path)
 
-montage = Image.new("RGB", (W * 2, H * 4), "#FFFFFF")
+montage_rows = (len(slides) + 1) // 2
+montage = Image.new("RGB", (W * 2, H * montage_rows), "#FFFFFF")
 for i, img in enumerate(slides):
     montage.paste(img.resize((W, H)), ((i % 2) * W, (i // 2) * H))
 montage_path = PREVIEWS / "montage.png"

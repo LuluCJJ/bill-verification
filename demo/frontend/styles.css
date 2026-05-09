@@ -537,6 +537,45 @@ iframe {
   margin: 6px 0 0;
 }
 
+.risk-config {
+  margin: 10px 0;
+  border: 1px solid #e1e7ed;
+  border-radius: 6px;
+  background: #fbfcfe;
+  padding: 8px 10px;
+}
+
+.risk-config summary {
+  cursor: pointer;
+  color: #1d5fa7;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.risk-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.risk-config-grid div {
+  border-top: 1px solid #eef2f6;
+  padding-top: 6px;
+}
+
+.risk-config-grid b {
+  display: block;
+  color: #5d6b78;
+  font-size: 12px;
+}
+
+.risk-config-grid p {
+  margin: 4px 0 0;
+  color: #1d2733;
+  font-size: 13px;
+}
+
 #templateList {
   display: grid;
   gap: 8px;
