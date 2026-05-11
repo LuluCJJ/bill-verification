@@ -79,20 +79,31 @@ def build_extraction_prompt(template_id: str | None) -> str:
     ]
     for field in template.get("fields", []):
         aliases = "、".join(field.get("aliases", [])) or "无"
+        ai_instruction = field_ai_instruction(field)
         parts.append(
             "\n".join(
                 [
                     f"- field_id: {field.get('field_id')}",
                     f"  系统来源字段: {field.get('source_system_field', '')}",
                     f"  展示名称: {field.get('display_name', '')}",
-                    f"  业务含义: {field.get('business_meaning', '')}",
                     f"  票面别名: {aliases}",
-                    f"  位置提示: {field.get('position_hint', '')}",
-                    f"  提取要求: {field.get('extraction_hint', '')}",
+                    f"  给AI的输入: {ai_instruction}",
                 ]
             )
         )
     return EXTRACTION_PROMPT.format(target_fields="\n".join(parts))
+
+
+def field_ai_instruction(field: dict[str, Any]) -> str:
+    explicit = str(field.get("ai_instruction", "") or "").strip()
+    if explicit:
+        return explicit
+    legacy_parts = [
+        str(field.get("business_meaning", "") or "").strip(),
+        str(field.get("position_hint", "") or "").strip(),
+        str(field.get("extraction_hint", "") or "").strip(),
+    ]
+    return "；".join(part for part in legacy_parts if part)
 
 
 def parse_model_json(payload: dict[str, Any], template_id: str | None = None) -> dict[str, Any]:

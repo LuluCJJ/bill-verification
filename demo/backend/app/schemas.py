@@ -110,6 +110,7 @@ class TemplateFieldConfig(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     position_hint: str = ""
     extraction_hint: str = ""
+    ai_instruction: str = ""
 
 
 class FeedbackRequest(BaseModel):

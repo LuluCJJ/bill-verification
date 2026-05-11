@@ -23,9 +23,8 @@ Demo 的目标不是一次性建设完整生产系统，而是围绕公司内部
 - 该模板是否启用 AI、是否已发布。
 - 本次需要提取的字段集合。
 - 每个字段对应的系统来源字段。
-- 字段业务含义。
 - 票面可能别名。
-- 位置提示和提取要求。
+- 给 AI 的输入：字段含义、常见位置和提取注意事项的合并说明。
 
 正式 AI 输出不再是开放式字段集合，而是当前模板配置字段范围内的 `document_items`、`extracted_fields` 和 `special_risks`。如果模板没有配置、未启用或未发布，正式 AI 预审不启动。
 
@@ -38,7 +37,7 @@ Demo 的目标不是一次性建设完整生产系统，而是围绕公司内部
 - 一张或多张票据图片。
 - 可选 PDF，Demo 阶段可以先转图片后处理。
 - 一份模拟 MAP/AP 系统支付指令 JSON。
-- 一份当前模板的 AI 字段配置，包括字段集合、系统来源、业务含义、别名、位置提示和提取要求。
+- 一份当前模板的 AI 字段配置，包括字段集合、系统来源、票面别名和给 AI 的输入。
 
 示例系统指令：
 
@@ -141,7 +140,7 @@ Demo 阶段可以先用本地文件或 SQLite：
 - `data/payment_instructions/`：模拟系统支付指令。
 - `data/results/`：AI 提取结果。
 - `data/feedback/`：人工反馈。
-- `config/template_ai_fields.json`：模板级 AI 字段配置，决定模板是否启用 AI、发布状态、字段集合、字段含义、别名和提取要求。
+- `config/template_ai_fields.json`：模板级 AI 字段配置，决定模板是否启用 AI、发布状态、字段集合、票面别名和给 AI 的输入。
 - `config/field_schema.json`：字段展示、风险等级和 Demo 比对预览配置。
 - `config/field_aliases.json`：旧版全局字段别名，当前保留用于兜底兼容。
 - `config/mapping_rules.json`：比对归属和旧版模板提示配置。
@@ -158,7 +157,7 @@ Demo 阶段可以先用本地文件或 SQLite：
 票据图片
 + 当前模板
 + 已配置字段清单
-+ 字段系统来源、业务含义、别名、位置提示、提取要求
++ 字段系统来源、票面别名、给 AI 的输入
 → 多模态模型定向提取
 → 输出 document_items / extracted_fields / special_risks
 → 后端按当前模板别名补充 mapped_field / extracted_fields
@@ -171,13 +170,13 @@ Demo 阶段可以先用本地文件或 SQLite：
 
 - 如果 raw key 命中当前模板字段别名，则补充 `mapped_field`、`mapped_display_name`、`source_system_field`、`mapping_source=template_alias_rule`。
 - 如果模型没有返回对应的 `extracted_fields`，但 `document_items` 已经命中别名，后端会补出一条结构化字段，供后续规则核验使用。
-- 业务含义、位置提示和提取要求主要进入 Prompt，不直接作为宽泛匹配规则，避免配置描述被过度泛化。
+- “给 AI 的输入”主要进入 Prompt，不直接作为宽泛匹配规则，避免自然语言描述被过度泛化。
 
 ### 5.0.1 配置沙箱
 
 模板字段配置应支持沙箱验证：
 
-1. 业务配置字段集合、含义、别名和提取要求。
+1. 业务配置字段集合、票面别名和给 AI 的输入。
 2. 上传样例票据。
 3. 在沙箱中调用模型提取。
 4. 查看提取值、证据、置信度和缺失字段。

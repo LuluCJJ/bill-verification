@@ -5,7 +5,7 @@
   "note": "All visible slide content is built from native PowerPoint text boxes, shapes, lines, and editable table-like cell groups. No full-slide image fallback is used.",
   "counts": {
     "slides": 9,
-    "text_boxes": 470,
+    "text_boxes": 462,
     "shapes": 17,
     "tables": 0,
     "pictures": 0

@@ -397,8 +397,7 @@ function renderItem(sampleId, item) {
       <div class="risk-config-grid">
         <div><b>系统字段</b><p>${escapeHtml(templateField.source_system_field || item.field)}</p></div>
         <div><b>票面可能叫法</b><p>${escapeHtml((templateField.aliases || []).join("、") || "未配置")}</p></div>
-        <div><b>业务含义</b><p>${escapeHtml(templateField.business_meaning || "-")}</p></div>
-        <div><b>提取要求</b><p>${escapeHtml(templateField.extraction_hint || "-")}</p></div>
+        <div class="wide"><b>给 AI 的输入</b><p>${escapeHtml(aiInstruction(templateField) || "-")}</p></div>
       </div>
     </details>
     <div class="meta">证据：${item.evidence.text || "-"} (${item.evidence.region_hint || "-"}) · 置信度 ${Math.round((item.confidence || 0) * 100)}%</div>
@@ -562,10 +561,8 @@ function renderAiTuningConfig(template = (templateAiConfig.templates || [])[0]) 
         <label>字段编码<input data-index="${index}" data-kind="field_id" value="${escapeHtml(field.field_id || "")}" /></label>
         <label>展示名称<input data-index="${index}" data-kind="display_name" value="${escapeHtml(field.display_name || "")}" /></label>
         <label>系统来源字段<input data-index="${index}" data-kind="source_system_field" value="${escapeHtml(field.source_system_field || "")}" /></label>
-        <label>业务含义<input data-index="${index}" data-kind="business_meaning" value="${escapeHtml(field.business_meaning || "")}" /></label>
         <label>票面可能叫法<input data-index="${index}" data-kind="aliases" value="${escapeHtml((field.aliases || []).join("、"))}" /></label>
-        <label>位置/模板提示<input data-index="${index}" data-kind="position_hint" value="${escapeHtml(field.position_hint || "")}" placeholder="例如：右上角金额框、Beneficiary 信息区域" /></label>
-        <label>AI 提取要求<input data-index="${index}" data-kind="extraction_hint" value="${escapeHtml(field.extraction_hint || "")}" placeholder="例如：不要把 Intermediary Bank 识别为收款银行" /></label>
+        <label class="ai-instruction-field">给 AI 的输入<textarea data-index="${index}" data-kind="ai_instruction" placeholder="用业务语言说明这个字段代表什么、通常在票面的哪里、AI 提取时要注意什么。例：这是收款方入账银行，通常在收款账号附近或“入账行/开户行/Beneficiary Bank”区域；只提取银行名称，不要合并账号、地址或 SWIFT。">${escapeHtml(aiInstruction(field))}</textarea></label>
       </div>
       <button class="danger-link" data-delete-field="${index}">删除字段</button>
     `;
@@ -583,7 +580,7 @@ async function saveAiTuning() {
   template.country = qs("templateCountryInput").value.trim();
   template.ai_enabled = qs("templateAiEnabled").value === "true";
   template.status = qs("templatePublishStatus").value;
-  document.querySelectorAll("#aiTuningConfig input").forEach((input) => {
+  document.querySelectorAll("#aiTuningConfig input, #aiTuningConfig textarea").forEach((input) => {
     if (input.id?.startsWith("template")) return;
     const target = (template.fields || [])[Number(input.dataset.index)];
     if (!target) return;
@@ -660,7 +657,14 @@ function newTemplateField(fieldId, displayName) {
     aliases: [],
     position_hint: "",
     extraction_hint: "",
+    ai_instruction: "",
   };
+}
+
+function aiInstruction(field) {
+  const explicit = (field?.ai_instruction || "").trim();
+  if (explicit) return explicit;
+  return [field?.business_meaning, field?.position_hint, field?.extraction_hint].map((x) => (x || "").trim()).filter(Boolean).join("；");
 }
 
 function activeTemplateId() {

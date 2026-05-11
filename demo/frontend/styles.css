@@ -339,6 +339,17 @@ textarea {
   font-size: 12px;
 }
 
+.ai-instruction-field {
+  grid-column: 1 / -1;
+}
+
+.ai-instruction-field textarea {
+  height: 96px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .collapsed-json {
   display: none;
 }
@@ -562,6 +573,10 @@ iframe {
 .risk-config-grid div {
   border-top: 1px solid #eef2f6;
   padding-top: 6px;
+}
+
+.risk-config-grid .wide {
+  grid-column: 1 / -1;
 }
 
 .risk-config-grid b {
