@@ -397,7 +397,7 @@ function renderItem(sampleId, item) {
       <div class="risk-config-grid">
         <div><b>系统字段</b><p>${escapeHtml(templateField.source_system_field || item.field)}</p></div>
         <div><b>票面可能叫法</b><p>${escapeHtml((templateField.aliases || []).join("、") || "未配置")}</p></div>
-        <div class="wide"><b>给 AI 的输入</b><p>${escapeHtml(aiInstruction(templateField) || "-")}</p></div>
+        <div class="wide"><b>AI 识别说明</b><p>${escapeHtml(aiInstruction(templateField) || "-")}</p></div>
       </div>
     </details>
     <div class="meta">证据：${item.evidence.text || "-"} (${item.evidence.region_hint || "-"}) · 置信度 ${Math.round((item.confidence || 0) * 100)}%</div>
@@ -562,7 +562,7 @@ function renderAiTuningConfig(template = (templateAiConfig.templates || [])[0]) 
         <label>展示名称<input data-index="${index}" data-kind="display_name" value="${escapeHtml(field.display_name || "")}" /></label>
         <label>系统来源字段<input data-index="${index}" data-kind="source_system_field" value="${escapeHtml(field.source_system_field || "")}" /></label>
         <label>票面可能叫法<input data-index="${index}" data-kind="aliases" value="${escapeHtml((field.aliases || []).join("、"))}" /></label>
-        <label class="ai-instruction-field">给 AI 的输入<textarea data-index="${index}" data-kind="ai_instruction" placeholder="用业务语言说明这个字段代表什么、通常在票面的哪里、AI 提取时要注意什么。例：这是收款方入账银行，通常在收款账号附近或“入账行/开户行/Beneficiary Bank”区域；只提取银行名称，不要合并账号、地址或 SWIFT。">${escapeHtml(aiInstruction(field))}</textarea></label>
+        <label class="ai-instruction-field">AI 识别说明<textarea data-index="${index}" data-kind="ai_instruction" placeholder="用业务语言说明这个字段是什么、通常在票面的哪里、AI 提取时要注意什么。例：这是收款方入账银行，通常在收款账号附近或“入账行/开户行/Beneficiary Bank”区域。只提取银行名称，不要合并账号、地址或 SWIFT。">${escapeHtml(aiInstruction(field))}</textarea></label>
       </div>
       <button class="danger-link" data-delete-field="${index}">删除字段</button>
     `;
@@ -664,7 +664,7 @@ function newTemplateField(fieldId, displayName) {
 function aiInstruction(field) {
   const explicit = (field?.ai_instruction || "").trim();
   if (explicit) return explicit;
-  return [field?.business_meaning, field?.position_hint, field?.extraction_hint].map((x) => (x || "").trim()).filter(Boolean).join("；");
+  return [field?.business_meaning, field?.position_hint, field?.extraction_hint].map((x) => (x || "").trim()).filter(Boolean).join(" ");
 }
 
 function activeTemplateId() {

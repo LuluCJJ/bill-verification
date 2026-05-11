@@ -87,7 +87,7 @@ def build_extraction_prompt(template_id: str | None) -> str:
                     f"  系统来源字段: {field.get('source_system_field', '')}",
                     f"  展示名称: {field.get('display_name', '')}",
                     f"  票面别名: {aliases}",
-                    f"  给AI的输入: {ai_instruction}",
+                    f"  AI识别说明: {ai_instruction}",
                 ]
             )
         )
@@ -103,7 +103,7 @@ def field_ai_instruction(field: dict[str, Any]) -> str:
         str(field.get("position_hint", "") or "").strip(),
         str(field.get("extraction_hint", "") or "").strip(),
     ]
-    return "；".join(part for part in legacy_parts if part)
+    return " ".join(part for part in legacy_parts if part)
 
 
 def parse_model_json(payload: dict[str, Any], template_id: str | None = None) -> dict[str, Any]:

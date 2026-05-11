@@ -187,7 +187,7 @@ def apply_alias_case() -> dict:
                 if "入账行" not in names:
                     names.append("入账行")
                 field["extraction_hint"] = "只提取银行名称，不要把账号、地址、SWIFT 合并进来；本模板中“入账行”表示收款方银行。"
-                field["ai_instruction"] = "这是收款方开户银行或入账银行，用于确认款项最终进入的银行机构。通常位于收款账号附近，也可能出现在银行名称独立栏位；本模板中“入账行”表示收款方银行。只提取银行名称，不要把账号、地址、SWIFT 合并进来。"
+                field["ai_instruction"] = "这是收款方开户银行或入账银行，用于确认款项最终进入的银行机构。通常位于收款账号附近，也可能出现在银行名称独立栏位。本模板中“入账行”表示收款方银行。只提取银行名称，不要把账号、地址、SWIFT 合并进来。"
     save_config("template_ai_fields.json", config)
 
     save_feedback(

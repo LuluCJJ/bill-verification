@@ -20,7 +20,7 @@
           ],
           "position_hint": "通常位于票面左侧或出票人信息区域。",
           "extraction_hint": "只提取公司名称，不要包含账号、银行名称或地址。",
-          "ai_instruction": "发起付款或出票的公司名称，用于确认票面付款主体与系统付款指令一致。；通常位于票面左侧或出票人信息区域。；只提取公司名称，不要包含账号、银行名称或地址。"
+          "ai_instruction": "发起付款或出票的公司名称，用于确认票面付款主体与系统付款指令一致。通常位于票面左侧或出票人信息区域。只提取公司名称，不要包含账号、银行名称或地址。"
         },
         {
           "field_id": "payer_account",
@@ -34,7 +34,7 @@
           ],
           "position_hint": "通常位于付款方名称附近或账号栏。",
           "extraction_hint": "只提取账号数字和必要分隔符，不要提取银行名称。",
-          "ai_instruction": "付款方用于扣款或出票的银行账号。；通常位于付款方名称附近或账号栏。；只提取账号数字和必要分隔符，不要提取银行名称。"
+          "ai_instruction": "付款方用于扣款或出票的银行账号。通常位于付款方名称附近或账号栏。只提取账号数字和必要分隔符，不要提取银行名称。"
         },
         {
           "field_id": "beneficiary_name",
@@ -49,7 +49,7 @@
           ],
           "position_hint": "通常位于票面中部收款人或 Payee 区域。",
           "extraction_hint": "逐字提取票面名称，不要做简称扩写或翻译。",
-          "ai_instruction": "最终收款的公司或个人名称，是权签核对的核心字段。；通常位于票面中部收款人或 Payee 区域。；逐字提取票面名称，不要做简称扩写或翻译。"
+          "ai_instruction": "最终收款的公司或个人名称，是权签核对的核心字段。通常位于票面中部收款人或 Payee 区域。逐字提取票面名称，不要做简称扩写或翻译。"
         },
         {
           "field_id": "beneficiary_account",
@@ -63,7 +63,7 @@
           ],
           "position_hint": "通常位于收款人名称附近或账号栏。",
           "extraction_hint": "只提取账号本身，不要合并银行名称。",
-          "ai_instruction": "收款方用于入账的银行账号。；通常位于收款人名称附近或账号栏。；只提取账号本身，不要合并银行名称。"
+          "ai_instruction": "收款方用于入账的银行账号。通常位于收款人名称附近或账号栏。只提取账号本身，不要合并银行名称。"
         },
         {
           "field_id": "beneficiary_bank",
@@ -76,7 +76,7 @@
           ],
           "position_hint": "通常位于收款账号附近，也可能出现在银行名称独立栏位。",
           "extraction_hint": "只提取银行名称，不要把账号、地址、SWIFT 合并进来。",
-          "ai_instruction": "收款方开户银行或入账银行，用于确认款项最终进入的银行机构。；通常位于收款账号附近，也可能出现在银行名称独立栏位。；只提取银行名称，不要把账号、地址、SWIFT 合并进来。"
+          "ai_instruction": "收款方开户银行或入账银行，用于确认款项最终进入的银行机构。通常位于收款账号附近，也可能出现在银行名称独立栏位。只提取银行名称，不要把账号、地址、SWIFT 合并进来。"
         },
         {
           "field_id": "currency",
@@ -90,7 +90,7 @@
           ],
           "position_hint": "通常与金额在同一区域。",
           "extraction_hint": "提取票面显示币种，如 CNY、RMB、人民币、USD 等。",
-          "ai_instruction": "付款金额对应币种。；通常与金额在同一区域。；提取票面显示币种，如 CNY、RMB、人民币、USD 等。"
+          "ai_instruction": "付款金额对应币种。通常与金额在同一区域。提取票面显示币种，如 CNY、RMB、人民币、USD 等。"
         },
         {
           "field_id": "amount",
@@ -104,7 +104,7 @@
           ],
           "position_hint": "通常位于数字金额框或金额栏。",
           "extraction_hint": "只提取数字金额，不要提取大写金额；保留票面小数位和分隔符。",
-          "ai_instruction": "本次付款金额的数字金额。；通常位于数字金额框或金额栏。；只提取数字金额，不要提取大写金额；保留票面小数位和分隔符。"
+          "ai_instruction": "本次付款金额的数字金额。通常位于数字金额框或金额栏。只提取数字金额，不要提取大写金额；保留票面小数位和分隔符。"
         },
         {
           "field_id": "amount_in_words",
@@ -118,7 +118,7 @@
           ],
           "position_hint": "通常位于金额大写栏或金额文字行。",
           "extraction_hint": "逐字提取大写金额，不要自行换算。",
-          "ai_instruction": "票面显示的金额大写文本。；通常位于金额大写栏或金额文字行。；逐字提取大写金额，不要自行换算。"
+          "ai_instruction": "票面显示的金额大写文本。通常位于金额大写栏或金额文字行。逐字提取大写金额，不要自行换算。"
         },
         {
           "field_id": "payment_date",
@@ -133,7 +133,7 @@
           ],
           "position_hint": "通常位于右上角或日期栏。",
           "extraction_hint": "保留票面原始日期格式，不要转换成标准日期。",
-          "ai_instruction": "票面出票日期或付款日期。；通常位于右上角或日期栏。；保留票面原始日期格式，不要转换成标准日期。"
+          "ai_instruction": "票面出票日期或付款日期。通常位于右上角或日期栏。保留票面原始日期格式，不要转换成标准日期。"
         },
         {
           "field_id": "purpose",
@@ -148,7 +148,7 @@
           ],
           "position_hint": "通常位于备注、用途或摘要区域。",
           "extraction_hint": "只提取票面可见用途文本，不要补充业务解释。",
-          "ai_instruction": "付款用途、摘要或交易附言。；通常位于备注、用途或摘要区域。；只提取票面可见用途文本，不要补充业务解释。"
+          "ai_instruction": "付款用途、摘要或交易附言。通常位于备注、用途或摘要区域。只提取票面可见用途文本，不要补充业务解释。"
         },
         {
           "field_id": "non_transferable",
@@ -163,7 +163,7 @@
           ],
           "position_hint": "通常位于票面划线区域、备注或特殊条款区域。",
           "extraction_hint": "如果看到相关字样，放入 special_risks；如果没有看到，不要臆造。",
-          "ai_instruction": "票面出现的不可转让、限定入账等特殊风险或限制提示。；通常位于票面划线区域、备注或特殊条款区域。；如果看到相关字样，放入 special_risks；如果没有看到，不要臆造。"
+          "ai_instruction": "票面出现的不可转让、限定入账等特殊风险或限制提示。通常位于票面划线区域、备注或特殊条款区域。如果看到相关字样，放入 special_risks。如果没有看到，不要臆造。"
         }
       ]
     },
@@ -190,7 +190,7 @@
           ],
           "position_hint": "通常位于 Ordering Customer、Applicant 或 Remitter 区域。",
           "extraction_hint": "只提取名称，不要合并账号和地址。",
-          "ai_instruction": "汇款申请人或付款账户持有人名称。；通常位于 Ordering Customer、Applicant 或 Remitter 区域。；只提取名称，不要合并账号和地址。"
+          "ai_instruction": "汇款申请人或付款账户持有人名称。通常位于 Ordering Customer、Applicant 或 Remitter 区域。只提取名称，不要合并账号和地址。"
         },
         {
           "field_id": "payer_account",
@@ -206,7 +206,7 @@
           ],
           "position_hint": "通常位于 Debit Account 或 Account No. 区域。",
           "extraction_hint": "只提取账号。",
-          "ai_instruction": "扣款账户或付款账户。；通常位于 Debit Account 或 Account No. 区域。；只提取账号。"
+          "ai_instruction": "扣款账户或付款账户。通常位于 Debit Account 或 Account No. 区域。只提取账号。"
         },
         {
           "field_id": "beneficiary_name",
@@ -222,7 +222,7 @@
           ],
           "position_hint": "通常位于 Beneficiary 区域。",
           "extraction_hint": "逐字提取名称，不要翻译或扩写。",
-          "ai_instruction": "跨境电汇最终受益人名称。；通常位于 Beneficiary 区域。；逐字提取名称，不要翻译或扩写。"
+          "ai_instruction": "跨境电汇最终受益人名称。通常位于 Beneficiary 区域。逐字提取名称，不要翻译或扩写。"
         },
         {
           "field_id": "beneficiary_account",
@@ -238,7 +238,7 @@
           ],
           "position_hint": "通常位于 Beneficiary Account 或 IBAN 区域。",
           "extraction_hint": "只提取账号或 IBAN，不要合并银行名称。",
-          "ai_instruction": "受益人入账账号或 IBAN。；通常位于 Beneficiary Account 或 IBAN 区域。；只提取账号或 IBAN，不要合并银行名称。"
+          "ai_instruction": "受益人入账账号或 IBAN。通常位于 Beneficiary Account 或 IBAN 区域。只提取账号或 IBAN，不要合并银行名称。"
         },
         {
           "field_id": "beneficiary_bank",
@@ -254,7 +254,7 @@
           ],
           "position_hint": "通常位于 Beneficiary Bank、Receiving Bank 或 Account With Institution 区域。",
           "extraction_hint": "只提取银行名称，不要把中间行、地址或 SWIFT 合并为银行名称。",
-          "ai_instruction": "受益人开户行或账户行。；通常位于 Beneficiary Bank、Receiving Bank 或 Account With Institution 区域。；只提取银行名称，不要把中间行、地址或 SWIFT 合并为银行名称。"
+          "ai_instruction": "受益人开户行或账户行。通常位于 Beneficiary Bank、Receiving Bank 或 Account With Institution 区域。只提取银行名称，不要把中间行、地址或 SWIFT 合并为银行名称。"
         },
         {
           "field_id": "swift_code",
@@ -269,7 +269,7 @@
           ],
           "position_hint": "通常位于 SWIFT/BIC 区域或银行信息附近。",
           "extraction_hint": "只提取代码，不要提取银行名称。",
-          "ai_instruction": "收款银行或账户行的 SWIFT/BIC 代码。；通常位于 SWIFT/BIC 区域或银行信息附近。；只提取代码，不要提取银行名称。"
+          "ai_instruction": "收款银行或账户行的 SWIFT/BIC 代码。通常位于 SWIFT/BIC 区域或银行信息附近。只提取代码，不要提取银行名称。"
         },
         {
           "field_id": "currency",
@@ -283,7 +283,7 @@
           ],
           "position_hint": "通常与 Amount 同行或相邻。",
           "extraction_hint": "提取票面显示的币种代码或文字。",
-          "ai_instruction": "电汇金额币种。；通常与 Amount 同行或相邻。；提取票面显示的币种代码或文字。"
+          "ai_instruction": "电汇金额币种。通常与 Amount 同行或相邻。提取票面显示的币种代码或文字。"
         },
         {
           "field_id": "amount",
@@ -298,7 +298,7 @@
           ],
           "position_hint": "通常位于 Amount、Transfer Amount 或 Currency and Amount 区域。",
           "extraction_hint": "只提取数字金额，不要合并币种。",
-          "ai_instruction": "本次电汇付款金额。；通常位于 Amount、Transfer Amount 或 Currency and Amount 区域。；只提取数字金额，不要合并币种。"
+          "ai_instruction": "本次电汇付款金额。通常位于 Amount、Transfer Amount 或 Currency and Amount 区域。只提取数字金额，不要合并币种。"
         },
         {
           "field_id": "payment_date",
@@ -314,7 +314,7 @@
           ],
           "position_hint": "通常位于日期栏、Value Date 或 Payment Date 区域。",
           "extraction_hint": "保留票面原始日期格式，不要自行转换。",
-          "ai_instruction": "申请日期、付款日期或起息日期。；通常位于日期栏、Value Date 或 Payment Date 区域。；保留票面原始日期格式，不要自行转换。"
+          "ai_instruction": "申请日期、付款日期或起息日期。通常位于日期栏、Value Date 或 Payment Date 区域。保留票面原始日期格式，不要自行转换。"
         },
         {
           "field_id": "purpose",
@@ -330,7 +330,7 @@
           ],
           "position_hint": "通常位于 Remittance Information 或 Details of Payment 区域。",
           "extraction_hint": "只提取票面可见用途文本。",
-          "ai_instruction": "汇款用途、付款详情或附言。；通常位于 Remittance Information 或 Details of Payment 区域。；只提取票面可见用途文本。"
+          "ai_instruction": "汇款用途、付款详情或附言。通常位于 Remittance Information 或 Details of Payment 区域。只提取票面可见用途文本。"
         },
         {
           "field_id": "charge_bearer",
@@ -347,7 +347,7 @@
           ],
           "position_hint": "通常位于 Charges 或 Charge Bearer 区域。",
           "extraction_hint": "提取 SHA、OUR、BEN 或票面显示的费用承担文字。",
-          "ai_instruction": "跨境电汇手续费承担方式。；通常位于 Charges 或 Charge Bearer 区域。；提取 SHA、OUR、BEN 或票面显示的费用承担文字。"
+          "ai_instruction": "跨境电汇手续费承担方式。通常位于 Charges 或 Charge Bearer 区域。提取 SHA、OUR、BEN 或票面显示的费用承担文字。"
         }
       ]
     }
