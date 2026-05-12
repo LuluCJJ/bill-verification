@@ -44,6 +44,7 @@
 - [当前 Demo 实现说明](docs/current-demo-implementation.md)：当前页面结构、代码实现、样例、真实模型验证和限制。
 - [产品方案](docs/bill-verification-product-solution.md)：业务背景、产品架构、字段归一、风险比对、配置闭环、产品职责划分和 MVP 范围。
 - [Demo 技术方案](docs/demo-technical-solution.md)：模型调用、后端结构、配置、规则比对和实施步骤。
+- [MAP 与 AI 产品架构边界方案](docs/map-ai-architecture-options.md)：对比 MAP 集成 AI 配置与 AI 产品独立配置两种方案。
 - [评审摘要](docs/review-summary.md)：适合会议沟通的短版摘要。
 - [模板参考要点](docs/online-template-notes.md)：公开票据模板字段参考。
 - [网页与脚本调用差异排查](docs/web-vs-script-troubleshooting.md)：解释为什么脚本文本测试可通，但网页端可能失败，以及公司电脑上的排查顺序。
