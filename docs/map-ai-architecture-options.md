@@ -155,3 +155,10 @@
 - AI 识别说明的填写规范如何控制，避免业务写成长篇自然语言导致模型不稳定。
 - AI 提取失败时，正式权签流程如何降级：只走人工核验、提示“AI 不可用”，还是保留历史配置。
 
+## 7. 配套图片材料
+
+- 代码生成版：`docs/architecture-options/output/map_ai_boundary_options_v3.png`
+- 图片模型生成版：`docs/architecture-options/output/map_ai_boundary_options_gpt_image.png`
+
+代码生成版适合文字准确和后续可控修改；图片模型生成版适合快速探索更有设计感的视觉表达。正式汇报前建议以代码生成版为准校对文字，再参考图片模型生成版优化版式。
+
